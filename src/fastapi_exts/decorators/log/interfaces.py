@@ -3,7 +3,15 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from functools import partial, wraps
 from string import Template
-from typing import Annotated, Any, Generic, Self, TypeVar, cast, overload
+from typing import (
+    Annotated,
+    Any,
+    Generic,
+    Self,
+    TypeVar,
+    cast,
+    overload,
+)
 
 from fastapi.params import Depends
 
@@ -84,22 +92,22 @@ class AsyncHandler(Generic[SuccessDetailT, FailureDetailT, P]):
     ): ...
 
 
-HandlerT = TypeVar("HandlerT", bound=Handler | AsyncHandler)
+_HandlerT = TypeVar("_HandlerT", bound=Handler | AsyncHandler)
 
-SuccessHandlerT = TypeVar("SuccessHandlerT", bound=Callable)
-FailureHandlerT = TypeVar("FailureHandlerT", bound=Callable)
-UtilFunctionT = TypeVar("UtilFunctionT", bound=Callable)
+_SuccessHandlerT = TypeVar("_SuccessHandlerT", bound=Callable)
+_FailureHandlerT = TypeVar("_FailureHandlerT", bound=Callable)
+_UtilFunctionT = TypeVar("_UtilFunctionT", bound=Callable)
 
 
 class _AbstractLogRecord(
     ABC,
     Generic[
-        HandlerT,
-        SuccessHandlerT,
-        FailureHandlerT,
+        _HandlerT,
+        _SuccessHandlerT,
+        _FailureHandlerT,
         AnyLogRecordContextT,
         EndpointT,
-        UtilFunctionT,
+        _UtilFunctionT,
     ],
 ):
     _log_record_deps_name = "extra"
@@ -110,14 +118,14 @@ class _AbstractLogRecord(
         *,
         success: MessageTemplate | None = None,
         failure: MessageTemplate | None = None,
-        functions: list[UtilFunctionT]
-        | dict[str, UtilFunctionT]
+        functions: list[_UtilFunctionT]
+        | dict[str, _UtilFunctionT]
         | None = None,
         dependencies: list[Depends] | dict[str, Depends] | None = None,
         context_factory: Callable[[], AnyLogRecordContextT] | None = None,
-        handlers: list[HandlerT] | None = None,
-        success_handlers: list[SuccessHandlerT] | None = None,
-        failure_handlers: list[FailureHandlerT] | None = None,
+        handlers: list[_HandlerT] | None = None,
+        success_handlers: list[_SuccessHandlerT] | None = None,
+        failure_handlers: list[_FailureHandlerT] | None = None,
         is_class_member: bool = False,
     ) -> None:
         self.success = success or ""
@@ -127,7 +135,7 @@ class _AbstractLogRecord(
 
         self.context_factory = context_factory
 
-        self.functions: dict[str, UtilFunctionT] = {}
+        self.functions: dict[str, _UtilFunctionT] = {}
 
         self.handlers = handlers or []
         self.success_handlers = success_handlers or []
@@ -156,10 +164,10 @@ class _AbstractLogRecord(
                     self.register_function(fn)
 
     @overload
-    def register_function(self, fn: UtilFunctionT): ...
+    def register_function(self, fn: _UtilFunctionT): ...
     @overload
-    def register_function(self, fn: UtilFunctionT, name: str): ...
-    def register_function(self, fn: UtilFunctionT, name: str | None = None):
+    def register_function(self, fn: _UtilFunctionT, name: str): ...
+    def register_function(self, fn: _UtilFunctionT, name: str | None = None):
         self.functions[name or fn.__name__] = fn
 
     def description(self) -> str | None: ...
@@ -182,13 +190,13 @@ class _AbstractLogRecord(
 
         self.dependencies.setdefault(name, dependency)
 
-    def add_handler(self, handler: HandlerT, /):
+    def add_handler(self, handler: _HandlerT, /):
         self.handlers.append(handler)
 
-    def add_success_handler(self, handler: SuccessHandlerT, /):
+    def add_success_handler(self, handler: _SuccessHandlerT, /):
         self.success_handlers.append(handler)
 
-    def add_failure_handler(self, handler: FailureHandlerT, /):
+    def add_failure_handler(self, handler: _FailureHandlerT, /):
         self.failure_handlers.append(handler)
 
     def _bind_fn(self, endpoint: EndpointT, fn: Callable):
@@ -311,14 +319,14 @@ class _AbstractLogRecord(
         *,
         success: MessageTemplate | None = None,
         failure: MessageTemplate | None = None,
-        functions: list[UtilFunctionT]
-        | dict[str, UtilFunctionT]
+        functions: list[_UtilFunctionT]
+        | dict[str, _UtilFunctionT]
         | None = None,
         dependencies: list[Depends] | dict[str, Depends] | None = None,
         context_factory: Callable[[], AnyLogRecordContextT] | None = None,
-        handlers: list[HandlerT] | None = None,
-        success_handlers: list[SuccessHandlerT] | None = None,
-        failure_handlers: list[FailureHandlerT] | None = None,
+        handlers: list[_HandlerT] | None = None,
+        success_handlers: list[_SuccessHandlerT] | None = None,
+        failure_handlers: list[_FailureHandlerT] | None = None,
         is_class_member: bool = False,
     ) -> Self:
         return cls(
@@ -342,14 +350,14 @@ class _AbstractLogRecord(
         *,
         success: MessageTemplate | None = None,
         failure: MessageTemplate | None = None,
-        functions: list[UtilFunctionT]
-        | dict[str, UtilFunctionT]
+        functions: list[_UtilFunctionT]
+        | dict[str, _UtilFunctionT]
         | None = None,
         dependencies: list[Depends] | dict[str, Depends] | None = None,
         context_factory: Callable[[], AnyLogRecordContextT] | None = None,
-        handlers: list[HandlerT] | None = None,
-        success_handlers: list[SuccessHandlerT] | None = None,
-        failure_handlers: list[FailureHandlerT] | None = None,
+        handlers: list[_HandlerT] | None = None,
+        success_handlers: list[_SuccessHandlerT] | None = None,
+        failure_handlers: list[_FailureHandlerT] | None = None,
         is_class_member: bool = False,
     ) -> Callable[[EndpointT], EndpointT]: ...
 
@@ -359,14 +367,14 @@ class _AbstractLogRecord(
         *,
         success: MessageTemplate | None = None,
         failure: MessageTemplate | None = None,
-        functions: list[UtilFunctionT]
-        | dict[str, UtilFunctionT]
+        functions: list[_UtilFunctionT]
+        | dict[str, _UtilFunctionT]
         | None = None,
         dependencies: list[Depends] | dict[str, Depends] | None = None,
         context_factory: Callable[[], AnyLogRecordContextT] | None = None,
-        handlers: list[HandlerT] | None = None,
-        success_handlers: list[SuccessHandlerT] | None = None,
-        failure_handlers: list[FailureHandlerT] | None = None,
+        handlers: list[_HandlerT] | None = None,
+        success_handlers: list[_SuccessHandlerT] | None = None,
+        failure_handlers: list[_FailureHandlerT] | None = None,
         is_class_member: bool = False,
     ):
         def none_or(new, old) -> Any:
@@ -426,6 +434,29 @@ class _AbstractLogRecord(
         self._endpoints[new_fn] = ofn
 
         return self._log_function(new_fn, endpoint)
+
+    def _get_arguments(self, args, kwds, /) -> tuple[tuple, dict]:
+        kwds.setdefault(self._endpoint_deps_name, None)
+        parameters: tuple[tuple, dict] = kwds.pop(
+            self._endpoint_deps_name
+        ) or ((), {})
+
+        instance = None
+        if self._is_class_member:
+            instance = args[0]
+
+        args, kwds = parameters
+        if self._is_class_member:
+            args = cast(Any, (instance, *args))
+        return args, kwds
+
+    @abstractmethod
+    def _execute_before_handles(self, args: tuple, kwds: dict, /):
+        raise NotImplementedError
+
+    @abstractmethod
+    def _execute(self, fn: Callable, args: tuple, kwds: dict, /):
+        raise NotImplementedError
 
 
 class AbstractLogRecord(
@@ -526,40 +557,37 @@ class AbstractLogRecord(
     ) -> FailureDetailT:
         raise NotImplementedError
 
-    def _log_function(self, fn: Callable, endpoint: EndpointT):  # noqa: C901
+    def _execute_before_handles(self, args: tuple, kwds: dict, /):
+        for i in self.handlers:
+            i.before(*args, **kwds)
+
+    def _execute(self, fn: Callable, args: tuple, kwds: dict, /):
+        context = None
+        if self.context_factory:
+            with self.context_factory() as ctx:
+                summary = sync_execute(fn, *args, **kwds)
+                context = ctx.info
+        else:
+            summary = sync_execute(fn, *args, **kwds)
+        return summary, context
+
+    def _log_function(self, fn: Callable, endpoint: EndpointT):
         @wraps(fn)
-        def decorator(*args, **kwds):  # noqa: C901, PLR0912
+        def decorator(*args, **kwds):
             is_endpoint_fn = fn in self._endpoints
 
             log_record_deps = None
             context: ContextT | None = None
 
             if is_endpoint_fn:
-                for i in self.handlers:
-                    i.before(*args, **kwds)
+                self._execute_before_handles(args, kwds)
 
                 log_record_deps = kwds.pop(self._log_record_deps_name, None)
 
                 kwds.setdefault(self._endpoint_deps_name, None)
-                parameters: tuple[tuple, dict] = kwds.pop(
-                    self._endpoint_deps_name
-                ) or ((), {})
 
-                instance = None
-                if self._is_class_member:
-                    instance = args[0]
-
-                args, kwds = parameters
-                if self._is_class_member:
-                    args = cast(Any, (instance, *args))
-
-                if self.context_factory:
-                    with self.context_factory() as ctx:
-                        summary = sync_execute(fn, *args, **kwds)
-                        context = ctx.info
-                else:
-                    summary = sync_execute(fn, *args, **kwds)
-
+                args, kwds = self._get_arguments(args, kwds)
+                summary, context = self._execute(fn, args, kwds)
             else:
                 summary = sync_execute(fn, *args, **kwds)
 
@@ -720,48 +748,78 @@ class AbstractAsyncLogRecord(
     ) -> FailureDetailT:
         raise NotImplementedError
 
-    def _log_function(self, fn: Callable, endpoint: EndpointT):  # noqa: C901, PLR0915
-        @wraps(fn)
-        async def decorator(*args, **kwds):  # noqa: C901, PLR0912, PLR0915
-            is_endpoint_fn = fn in self._endpoints
+    async def _execute_before_handles(self, args: tuple, kwds: dict, /):
+        for i in self.handlers:
+            _ = i.before(*args, **kwds)
+            if Is.awaitable(_):
+                await _
 
-            for i in self.handlers:
-                _ = i.before(*args, **kwds)
+    async def _execute(self, fn: Callable, args: tuple, kwds: dict, /):
+        context = None
+        if self.context_factory:
+            context_ = self.context_factory()
+            if Is.async_context(context_):
+                async with context_ as ctx:
+                    summary = await async_execute(fn, *args, **kwds)
+                    context = ctx.info
+            else:
+                assert Is.context(context_)
+                with context_ as ctx:
+                    summary = await async_execute(fn, *args, **kwds)
+                    context = ctx.info
+        else:
+            summary = await async_execute(fn, *args, **kwds)
+        return summary, context
+
+    async def _execute_success_handlers(self, detail):
+        for i in self.success_handlers:
+            i_result = i(detail)
+            if Is.awaitable(i_result):
+                await i_result
+
+    async def _execute_failure_handlers(self, detail):
+        for i in self.failure_handlers:
+            i_result = i(detail)
+            if Is.awaitable(i_result):
+                await i_result
+
+    async def _execute_after_handlers(
+        self,
+        detail,
+        args: tuple,
+        kwds: dict,
+        success: bool,  # noqa: FBT001
+    ):
+        for i in self.handlers:
+            if success:
+                _ = i.success(detail, *args, **kwds)
                 if Is.awaitable(_):
                     await _
+            else:
+                _ = i.failure(detail, *args, **kwds)
+                if Is.awaitable(_):
+                    await _
+
+            _ = i.after(detail, *args, **kwds)
+            if Is.awaitable(_):
+                await _
+
+    def _log_function(self, fn: Callable, endpoint: EndpointT):
+        @wraps(fn)
+        async def decorator(*args, **kwds):
+            is_endpoint_fn = fn in self._endpoints
 
             log_record_deps = None
             context: ContextT | None = None
 
             if is_endpoint_fn:
+                await self._execute_before_handles(args, kwds)
+
                 log_record_deps = kwds.pop(self._log_record_deps_name, None)
 
                 kwds.setdefault(self._endpoint_deps_name, None)
-                parameters: tuple[tuple, dict] = kwds.pop(
-                    self._endpoint_deps_name
-                ) or ((), {})
-
-                instance = None
-                if self._is_class_member:
-                    instance = args[0]
-
-                args, kwds = parameters
-                if self._is_class_member:
-                    args = cast(Any, (instance, *args))
-
-                if self.context_factory:
-                    context_ = self.context_factory()
-                    if Is.async_context(context_):
-                        async with context_ as ctx:
-                            summary = await async_execute(fn, *args, **kwds)
-                            context = ctx.info
-                    else:
-                        assert Is.context(context_)
-                        with context_ as ctx:
-                            summary = await async_execute(fn, *args, **kwds)
-                            context = ctx.info
-                else:
-                    summary = await async_execute(fn, *args, **kwds)
+                args, kwds = self._get_arguments(args, kwds)
+                summary, context = await self._execute(fn, args, kwds)
 
             else:
                 summary = await async_execute(fn, *args, **kwds)
@@ -781,19 +839,8 @@ class AbstractAsyncLogRecord(
                     endpoint=endpoint,
                 )
 
-                for i in self.success_handlers:
-                    i_result = i(detail)
-                    if Is.awaitable(i_result):
-                        await i_result
-
-                for i in self.handlers:
-                    _ = i.success(detail, *args, **kwds)
-                    if Is.awaitable(_):
-                        await _
-
-                    _ = i.after(detail, *args, **kwds)
-                    if Is.awaitable(_):
-                        await _
+                await self._execute_success_handlers(detail)
+                await self._execute_after_handlers(detail, args, kwds, True)  # noqa: FBT003
 
                 return summary.result
 
@@ -814,19 +861,8 @@ class AbstractAsyncLogRecord(
                     endpoint=endpoint,
                 )
 
-                for i in self.failure_handlers:
-                    i_result = i(detail)
-                    if Is.awaitable(i_result):
-                        await i_result
-
-                for i in self.handlers:
-                    _ = i.failure(detail, *args, **kwds)
-                    if Is.awaitable(_):
-                        await _
-
-                    _ = i.after(detail, *args, **kwds)
-                    if Is.awaitable(_):
-                        await _
+                await self._execute_failure_handlers(detail)
+                await self._execute_after_handlers(detail, args, kwds, False)  # noqa: FBT003
 
                 raise summary.exception
 
