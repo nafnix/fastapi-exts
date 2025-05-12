@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from functools import partial, wraps
 from string import Template
-from typing import Annotated, Any, Generic, Self, TypeVar, overload
+from typing import Annotated, Any, Generic, Self, TypeVar, cast, overload
 
 from fastapi.params import Depends
 
@@ -528,7 +528,7 @@ class AbstractLogRecord(
 
     def _log_function(self, fn: Callable, endpoint: EndpointT):  # noqa: C901
         @wraps(fn)
-        def decorator(*args, **kwds):
+        def decorator(*args, **kwds):  # noqa: C901, PLR0912
             is_endpoint_fn = fn in self._endpoints
 
             log_record_deps = None
@@ -543,11 +543,15 @@ class AbstractLogRecord(
                 kwds.setdefault(self._endpoint_deps_name, None)
                 parameters: tuple[tuple, dict] = kwds.pop(
                     self._endpoint_deps_name
-                ) or (
-                    (),
-                    {},
-                )
+                ) or ((), {})
+
+                instance = None
+                if self._is_class_member:
+                    instance = args[0]
+
                 args, kwds = parameters
+                if self._is_class_member:
+                    args = cast(Any, (instance, *args))
 
                 if self.context_factory:
                     with self.context_factory() as ctx:
@@ -716,9 +720,9 @@ class AbstractAsyncLogRecord(
     ) -> FailureDetailT:
         raise NotImplementedError
 
-    def _log_function(self, fn: Callable, endpoint: EndpointT):  # noqa: C901
+    def _log_function(self, fn: Callable, endpoint: EndpointT):  # noqa: C901, PLR0915
         @wraps(fn)
-        async def decorator(*args, **kwds):  # noqa: C901, PLR0912
+        async def decorator(*args, **kwds):  # noqa: C901, PLR0912, PLR0915
             is_endpoint_fn = fn in self._endpoints
 
             for i in self.handlers:
@@ -731,7 +735,19 @@ class AbstractAsyncLogRecord(
 
             if is_endpoint_fn:
                 log_record_deps = kwds.pop(self._log_record_deps_name, None)
-                args, kwds = kwds.pop(self._endpoint_deps_name, ((), {}))
+
+                kwds.setdefault(self._endpoint_deps_name, None)
+                parameters: tuple[tuple, dict] = kwds.pop(
+                    self._endpoint_deps_name
+                ) or ((), {})
+
+                instance = None
+                if self._is_class_member:
+                    instance = args[0]
+
+                args, kwds = parameters
+                if self._is_class_member:
+                    args = cast(Any, (instance, *args))
 
                 if self.context_factory:
                     context_ = self.context_factory()
