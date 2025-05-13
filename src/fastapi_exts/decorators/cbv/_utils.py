@@ -12,13 +12,10 @@ def iter_class_functions(
 ) -> Generator[tuple[str, Callable], None, None]:
     """迭代类的函数, 并且能够提取父类的函数"""
 
-    for name, fn in inspect.getmembers_static(
+    yield from inspect.getmembers_static(
         cls,
         lambda obj: (inspect.isfunction(obj) or inspect.ismethod(obj)),
-    ):
-        # if isinstance(fn, staticmethod):
-        print(fn)
-        yield name, fn
+    )
 
 
 def get_dependency_from_annotated(
