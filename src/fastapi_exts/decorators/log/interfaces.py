@@ -566,7 +566,7 @@ class AbstractLogRecord(
         if self.context_factory:
             with self.context_factory() as ctx:
                 summary = sync_execute(fn, *args, **kwds)
-                context = ctx.info
+            context = ctx.info
         else:
             summary = sync_execute(fn, *args, **kwds)
         return summary, context
@@ -761,12 +761,12 @@ class AbstractAsyncLogRecord(
             if Is.async_context(context_):
                 async with context_ as ctx:
                     summary = await async_execute(fn, *args, **kwds)
-                    context = ctx.info
+                context = ctx.info
             else:
                 assert Is.context(context_)
                 with context_ as ctx:
                     summary = await async_execute(fn, *args, **kwds)
-                    context = ctx.info
+                context = ctx.info
         else:
             summary = await async_execute(fn, *args, **kwds)
         return summary, context
