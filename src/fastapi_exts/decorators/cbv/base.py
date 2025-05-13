@@ -3,7 +3,7 @@ from collections.abc import Callable
 from functools import wraps
 from typing import TypeVar
 
-from fastapi import APIRouter, params
+from fastapi import APIRouter, FastAPI, params
 from fastapi.routing import APIRoute, APIWebSocketRoute
 
 from fastapi_exts._utils import (
@@ -13,7 +13,7 @@ from fastapi_exts._utils import (
     new_function,
     update_signature,
 )
-
+from fastapi_exts.logger import logger
 from fastapi_exts.responses import Response, build_responses
 
 from ._utils import iter_class_dependency
@@ -26,50 +26,48 @@ Fn = TypeVar("Fn", bound=Callable)
 
 
 class CBV:
-    def __init__(
-        self,
-        router: APIRouter,
-    ) -> None:
+    def __init__(self, router: APIRouter | FastAPI, /) -> None:
         self.router = router
+        self._router = APIRouter()
 
     @property
     def get(self):
-        return self.router.get
+        return self._router.get
 
     @property
     def put(self):
-        return self.router.put
+        return self._router.put
 
     @property
     def post(self):
-        return self.router.post
+        return self._router.post
 
     @property
     def delete(self):
-        return self.router.delete
+        return self._router.delete
 
     @property
     def patch(self):
-        return self.router.patch
+        return self._router.patch
 
     @property
     def trace(self):
-        return self.router.trace
+        return self._router.trace
 
     @property
     def websocket(self):
-        return self.router.websocket
+        return self._router.websocket
 
     @property
     def ws(self):
-        return self.router.websocket
+        return self._router.websocket
 
     def route_handle(
         self,
         endpoint: Callable,
         handle: Callable[[APIRoute], None | APIRoute],
     ):
-        for route in self.router.routes:
+        for route in self._router.routes:
             if isinstance(route, APIRoute) and route.endpoint == endpoint:
                 handle(route)
 
@@ -120,6 +118,7 @@ class CBV:
             name=name,
             default=params.Depends(class_dependencies),
         )
+
         fn = new_function(fn, parameters=parameters)
         if Is.coroutine_function(fn):
 
@@ -143,23 +142,24 @@ class CBV:
 
     def __call__(self, cls: type[T], /) -> type[T]:
         api_routes = [
-            i
-            for i in self.router.routes
+            (index, i)
+            for index, i in enumerate(self._router.routes)
             if isinstance(i, APIRoute | APIWebSocketRoute)
         ]
-        new_router = APIRouter()
-        for route in api_routes:
+
+        for _index, route in api_routes:
             fn = route.endpoint
-
             if hasattr(cls, fn.__name__):
-                self.router.routes.remove(route)
-
+                self._router.routes.remove(route)
                 if not isinstance(fn, staticmethod):
                     new_fn = self._create_instance_function(fn, cls)
                     setattr(route, "endpoint", new_fn)
+                    logger.debug(
+                        f"Update route {route.path} endpoint to {new_fn.__name__}"  # noqa: E501
+                    )
+                self._router.routes.append(route)
 
-                new_router.routes.append(route)
-
-        self.router.include_router(new_router)
+        self.router.include_router(self._router)
+        self._router.routes = []
 
         return cls
