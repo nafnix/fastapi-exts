@@ -314,9 +314,10 @@ class _AbstractLogRecord(
     def _log_function(self, fn: Callable, endpoint: EndpointT) -> Callable: ...
 
     @classmethod
-    def _new(  # noqa: PLR0913
+    def new(  # noqa: PLR0913
         cls,
         *,
+        old: Self,  # noqa: ARG003
         success: MessageTemplate | None = None,
         failure: MessageTemplate | None = None,
         functions: list[_UtilFunctionT]
@@ -377,26 +378,18 @@ class _AbstractLogRecord(
         failure_handlers: list[_FailureHandlerT] | None = None,
         is_class_member: bool = False,
     ):
-        def none_or(new, old) -> Any:
-            return old if new is None else new
-
         if endpoint is None:
-            return self._new(
-                success=none_or(success, self.success),
-                failure=none_or(failure, self.failure),
-                functions=none_or(functions, self.functions),
-                dependencies=none_or(dependencies, self.dependencies),
-                context_factory=none_or(context_factory, self.context_factory),
-                handlers=none_or(handlers, self.handlers),
-                success_handlers=none_or(
-                    success_handlers, self.success_handlers
-                ),
-                failure_handlers=none_or(
-                    failure_handlers, self.failure_handlers
-                ),
-                is_class_member=none_or(
-                    is_class_member, self._is_class_member
-                ),
+            return self.new(
+                old=self,
+                success=success,
+                failure=failure,
+                functions=functions,
+                dependencies=dependencies,
+                context_factory=context_factory,
+                handlers=handlers,
+                success_handlers=success_handlers,
+                failure_handlers=failure_handlers,
+                is_class_member=is_class_member,
             )
 
         ofn = endpoint
