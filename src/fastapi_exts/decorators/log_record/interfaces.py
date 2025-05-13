@@ -3,15 +3,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from functools import partial, wraps
 from string import Template
-from typing import (
-    Annotated,
-    Any,
-    Generic,
-    Self,
-    TypeVar,
-    cast,
-    overload,
-)
+from typing import Annotated, Any, Generic, Self, TypeVar, overload
 
 from fastapi.params import Depends
 
@@ -110,10 +102,9 @@ class _AbstractLogRecord(
         _UtilFunctionT,
     ],
 ):
-    _log_record_deps_name = "extra"
-    _endpoint_deps_name = "endpoint_deps"
+    _log_record_deps_name = "__log_record_dependencies"
 
-    def __init__(  # noqa: PLR0913
+    def __init__(
         self,
         *,
         success: MessageTemplate | None = None,
@@ -126,7 +117,6 @@ class _AbstractLogRecord(
         handlers: list[_HandlerT] | None = None,
         success_handlers: list[_SuccessHandlerT] | None = None,
         failure_handlers: list[_FailureHandlerT] | None = None,
-        is_class_member: bool = False,
         **extra,
     ) -> None:
         self.success = success or ""
@@ -146,7 +136,7 @@ class _AbstractLogRecord(
         self._endpoints: dict[Callable, EndpointT] = {}
         self._bind = {}
 
-        self._is_class_member = is_class_member
+        # self._ignore_first =
 
         if dependencies:
             if isinstance(dependencies, dict):
@@ -294,24 +284,6 @@ class _AbstractLogRecord(
 
         return parameter
 
-    def _endpoint_deps(self, endpoint: EndpointT) -> Callable | None:
-        if parameters := list_parameters(endpoint):
-            if self._is_class_member:
-                parameters = parameters[1:]
-
-            def endpoint_deps(*args, **kwargs):
-                return args, kwargs
-
-            update_signature(
-                endpoint_deps,
-                parameters=[
-                    self._wrap_dependency(p, endpoint) for p in parameters
-                ],
-            )
-            return endpoint_deps
-
-        return None
-
     @abstractmethod
     def _log_function(self, fn: Callable, endpoint: EndpointT) -> Callable: ...
 
@@ -330,7 +302,6 @@ class _AbstractLogRecord(
         handlers: list[_HandlerT] | None = None,
         success_handlers: list[_SuccessHandlerT] | None = None,
         failure_handlers: list[_FailureHandlerT] | None = None,
-        is_class_member: bool = False,
         **extra,
     ) -> Self:
         return cls(
@@ -342,7 +313,6 @@ class _AbstractLogRecord(
             handlers=handlers,
             success_handlers=success_handlers,
             failure_handlers=failure_handlers,
-            is_class_member=is_class_member,
             **extra,
         )
 
@@ -363,7 +333,6 @@ class _AbstractLogRecord(
         handlers: list[_HandlerT] | None = None,
         success_handlers: list[_SuccessHandlerT] | None = None,
         failure_handlers: list[_FailureHandlerT] | None = None,
-        is_class_member: bool = False,
         **extra,
     ) -> Callable[[EndpointT], EndpointT]: ...
 
@@ -381,7 +350,6 @@ class _AbstractLogRecord(
         handlers: list[_HandlerT] | None = None,
         success_handlers: list[_SuccessHandlerT] | None = None,
         failure_handlers: list[_FailureHandlerT] | None = None,
-        is_class_member: bool = False,
         **extra,
     ):
         if endpoint is None:
@@ -395,7 +363,6 @@ class _AbstractLogRecord(
                 handlers=handlers,
                 success_handlers=success_handlers,
                 failure_handlers=failure_handlers,
-                is_class_member=is_class_member,
                 **extra,
             )
 
@@ -403,26 +370,16 @@ class _AbstractLogRecord(
 
         # 日志记录器本身所需的依赖
         log_record_deps = self._log_record_deps(endpoint)
-        parameters = []
-        if self._is_class_member:
-            parameters.append(list_parameters(endpoint)[0])
+        parameters = [
+            self._wrap_dependency(p, endpoint)
+            for p in list_parameters(endpoint)
+        ]
 
         if callable(log_record_deps):
             parameters.append(
                 inspect.Parameter(
                     name=self._log_record_deps_name,
                     default=Depends(log_record_deps),
-                    kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                )
-            )
-
-        # 端点的依赖
-        endpoint_deps = self._endpoint_deps(endpoint)
-        if callable(endpoint_deps):
-            parameters.append(
-                inspect.Parameter(
-                    name=self._endpoint_deps_name,
-                    default=Depends(endpoint_deps),
                     kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
                 )
             )
@@ -434,21 +391,6 @@ class _AbstractLogRecord(
         self._endpoints[new_fn] = ofn
 
         return self._log_function(new_fn, endpoint)
-
-    def _get_arguments(self, args, kwds, /) -> tuple[tuple, dict]:
-        kwds.setdefault(self._endpoint_deps_name, None)
-        parameters: tuple[tuple, dict] = kwds.pop(
-            self._endpoint_deps_name
-        ) or ((), {})
-
-        instance = None
-        if self._is_class_member:
-            instance = args[0]
-
-        args, kwds = parameters
-        if self._is_class_member:
-            args = cast(Any, (instance, *args))
-        return args, kwds
 
     @abstractmethod
     def _execute_before_handles(self, args: tuple, kwds: dict, /):
@@ -584,9 +526,6 @@ class AbstractLogRecord(
 
                 log_record_deps = kwds.pop(self._log_record_deps_name, None)
 
-                kwds.setdefault(self._endpoint_deps_name, None)
-
-                args, kwds = self._get_arguments(args, kwds)
                 summary, context = self._execute(fn, args, kwds)
             else:
                 summary = sync_execute(fn, *args, **kwds)
@@ -817,8 +756,8 @@ class AbstractAsyncLogRecord(
 
                 log_record_deps = kwds.pop(self._log_record_deps_name, None)
 
-                kwds.setdefault(self._endpoint_deps_name, None)
-                args, kwds = self._get_arguments(args, kwds)
+                # kwds.setdefault(self._endpoint_deps_name, None)
+                # args, kwds = self._get_arguments(args, kwds)
                 summary, context = await self._execute(fn, args, kwds)
 
             else:
