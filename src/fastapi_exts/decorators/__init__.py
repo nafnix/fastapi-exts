@@ -1,6 +1,6 @@
 from .cbv import CBV
 from .dependency import dependency
-from .log import (
+from .log_record import (
     AsyncLogRecord,
     AsyncLogRecordContext,
     LogRecord,
