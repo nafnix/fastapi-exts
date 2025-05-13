@@ -127,6 +127,7 @@ class _AbstractLogRecord(
         success_handlers: list[_SuccessHandlerT] | None = None,
         failure_handlers: list[_FailureHandlerT] | None = None,
         is_class_member: bool = False,
+        **extra,
     ) -> None:
         self.success = success or ""
         self.failure = failure or ""
@@ -162,6 +163,7 @@ class _AbstractLogRecord(
             else:
                 for fn in functions:
                     self.register_function(fn)
+        self.extra = extra
 
     @overload
     def register_function(self, fn: _UtilFunctionT): ...
@@ -329,6 +331,7 @@ class _AbstractLogRecord(
         success_handlers: list[_SuccessHandlerT] | None = None,
         failure_handlers: list[_FailureHandlerT] | None = None,
         is_class_member: bool = False,
+        **extra,
     ) -> Self:
         return cls(
             success=success,
@@ -340,6 +343,7 @@ class _AbstractLogRecord(
             success_handlers=success_handlers,
             failure_handlers=failure_handlers,
             is_class_member=is_class_member,
+            **extra,
         )
 
     @overload
@@ -360,6 +364,7 @@ class _AbstractLogRecord(
         success_handlers: list[_SuccessHandlerT] | None = None,
         failure_handlers: list[_FailureHandlerT] | None = None,
         is_class_member: bool = False,
+        **extra,
     ) -> Callable[[EndpointT], EndpointT]: ...
 
     def __call__(  # noqa: PLR0913
@@ -377,6 +382,7 @@ class _AbstractLogRecord(
         success_handlers: list[_SuccessHandlerT] | None = None,
         failure_handlers: list[_FailureHandlerT] | None = None,
         is_class_member: bool = False,
+        **extra,
     ):
         if endpoint is None:
             return self.new(
@@ -390,6 +396,7 @@ class _AbstractLogRecord(
                 success_handlers=success_handlers,
                 failure_handlers=failure_handlers,
                 is_class_member=is_class_member,
+                **extra,
             )
 
         ofn = endpoint
