@@ -470,10 +470,10 @@ class AbstractLogRecord(
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> str:
-        kwargs["__"] = {
+        kwargs["$"] = {
             "summary": summary,
-            self._log_record_deps_name: extra,
             "context": context,
+            "extra": extra,
         }
 
         message = self.success if summary.success else self.failure
@@ -506,6 +506,7 @@ class AbstractLogRecord(
         message: str,
         context: ContextT | None,
         endpoint: EndpointT,
+        extra: dict[str, Any] | None,
     ) -> SuccessDetailT:
         raise NotImplementedError
 
@@ -517,6 +518,7 @@ class AbstractLogRecord(
         message: str,
         context: ContextT | None,
         endpoint: EndpointT,
+        extra: dict[str, Any] | None,
     ) -> FailureDetailT:
         raise NotImplementedError
 
@@ -562,6 +564,7 @@ class AbstractLogRecord(
                     context=context,
                     message=message,
                     endpoint=endpoint,
+                    extra=log_record_deps,
                 )
 
                 for i in self.success_handlers:
@@ -588,6 +591,7 @@ class AbstractLogRecord(
                     context=context,
                     message=message,
                     endpoint=endpoint,
+                    extra=log_record_deps,
                 )
 
                 for i in self.failure_handlers:
@@ -655,8 +659,8 @@ class AbstractAsyncLogRecord(
     ) -> str:
         kwargs["$"] = {
             "summary": summary,
-            self._log_record_deps_name: extra,
             "context": context,
+            "extra": extra,
         }
 
         message = self.success if summary.success else self.failure
@@ -692,6 +696,7 @@ class AbstractAsyncLogRecord(
         message: str,
         context: ContextT | None,
         endpoint: EndpointT,
+        extra: dict[str, Any] | None,
     ) -> SuccessDetailT:
         raise NotImplementedError
 
@@ -703,6 +708,7 @@ class AbstractAsyncLogRecord(
         message: str,
         context: ContextT | None,
         endpoint: EndpointT,
+        extra: dict[str, Any] | None,
     ) -> FailureDetailT:
         raise NotImplementedError
 
@@ -767,7 +773,9 @@ class AbstractAsyncLogRecord(
         async def decorator(*args, **kwds):
             is_endpoint_fn = fn in self._endpoints
 
-            log_record_deps = kwds.pop(self._log_record_deps_name, None)
+            log_record_deps: dict[str, Any] | None = kwds.pop(
+                self._log_record_deps_name, None
+            )
             context: ContextT | None = None
 
             if is_endpoint_fn:
@@ -793,6 +801,7 @@ class AbstractAsyncLogRecord(
                     context=context,
                     message=message,
                     endpoint=endpoint,
+                    extra=log_record_deps,
                 )
 
                 await self._execute_success_handlers(detail)
@@ -815,6 +824,7 @@ class AbstractAsyncLogRecord(
                     context=context,
                     message=message,
                     endpoint=endpoint,
+                    extra=log_record_deps,
                 )
 
                 await self._execute_failure_handlers(detail)
