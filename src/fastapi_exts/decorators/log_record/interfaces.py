@@ -13,6 +13,7 @@ from fastapi_exts._utils import (
     get_annotated_type,
     list_parameters,
     update_signature,
+    with_parameter,
 )
 
 from ._types import ContextT, EndpointT, ExceptionT, MessageTemplate, P, T
@@ -134,7 +135,6 @@ class _AbstractLogRecord(
 
         # 用于判断当前装饰的是哪个端点
         self._endpoints: dict[Callable, EndpointT] = {}
-        self._bind = {}
 
         # self._ignore_first =
 
@@ -191,10 +191,16 @@ class _AbstractLogRecord(
     def add_failure_handler(self, handler: _FailureHandlerT, /):
         self.failure_handlers.append(handler)
 
-    def _bind_fn(self, endpoint: EndpointT, fn: Callable):
-        self._bind.setdefault(fn, endpoint)
+    @abstractmethod
+    def _log_function(self, fn: Callable, endpoint: EndpointT) -> Callable: ...
 
     def _log_record_deps(self, endpoint: EndpointT):
+        """创建日志所需依赖
+
+        :param endpoint: 当日志所需依赖报错时, 导致依赖报错的端点
+        :return: 日志所需依赖
+        """
+
         if not self.dependencies:
             return None
 
@@ -220,11 +226,30 @@ class _AbstractLogRecord(
 
         return log_record_dependencies
 
+    def _with_log_record_deps(self, call: Callable, endpoint: EndpointT):
+        # 日志记录器本身所需的依赖
+        log_record_deps = self._log_record_deps(endpoint)
+
+        if callable(log_record_deps):
+            old = call
+            new = wraps(old)(partial(call))
+            parameters, *_ = with_parameter(
+                new,
+                name=self._log_record_deps_name,
+                default=Depends(log_record_deps, use_cache=True),
+            )
+            update_signature(new, parameters=parameters)
+            return new
+        return call
+
     def _wrap_dependency(
         self, parameter: inspect.Parameter, endpoint: EndpointT
     ):
         default = parameter.default
         annotation = parameter.annotation
+        with_log_record_deps_dep = partial(
+            self._with_log_record_deps, endpoint=endpoint
+        )
         # e.g.
         # 1. def endpoint(value=Depends(dependency_function)): ...
         # 2. >>>>>>
@@ -237,17 +262,17 @@ class _AbstractLogRecord(
         if isinstance(default, Depends):
             # handle 1
             if default.dependency:
+                new_depend = with_log_record_deps_dep(default.dependency)
                 new_dep = Depends(
-                    self._log_function(default.dependency, endpoint),
+                    self._log_function(new_depend, endpoint),
                     use_cache=default.use_cache,
                 )
-                self._bind.setdefault(default.dependency, endpoint)
                 return parameter.replace(default=new_dep)
             # handle 2
             if inspect.isclass(annotation):
-                self._bind.setdefault(default.dependency, endpoint)
+                cls = with_log_record_deps_dep(annotation)
                 return parameter.replace(
-                    annotation=self._log_function(annotation, endpoint)
+                    annotation=self._log_function(cls, endpoint)
                 )
 
         # e.g.
@@ -269,23 +294,28 @@ class _AbstractLogRecord(
             for i in get_annotated_metadata(annotation):
                 if isinstance(i, Depends):
                     if i.dependency:
+                        new_depend = with_log_record_deps_dep(i.dependency)
+
                         cls_dep = False
                         new_dep = Depends(
-                            self._log_function(i.dependency, endpoint),
+                            self._log_function(new_depend, endpoint),
                             use_cache=default.use_cache,
                         )
                         metadata.append(new_dep)
                     else:
                         metadata.append(i)
+                else:
+                    metadata.append(i)
+
             if cls_dep and inspect.isclass(typ):
-                typ = self._log_function(typ, endpoint)
+                typ = self._log_function(
+                    with_log_record_deps_dep(typ),
+                    endpoint,
+                )
 
             return parameter.replace(annotation=Annotated[typ, *metadata])
 
         return parameter
-
-    @abstractmethod
-    def _log_function(self, fn: Callable, endpoint: EndpointT) -> Callable: ...
 
     @classmethod
     def new(  # noqa: PLR0913
@@ -369,24 +399,15 @@ class _AbstractLogRecord(
         ofn = endpoint
 
         # 日志记录器本身所需的依赖
-        log_record_deps = self._log_record_deps(endpoint)
         parameters = [
             self._wrap_dependency(p, endpoint)
             for p in list_parameters(endpoint)
         ]
-
-        if callable(log_record_deps):
-            parameters.append(
-                inspect.Parameter(
-                    name=self._log_record_deps_name,
-                    default=Depends(log_record_deps),
-                    kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                )
-            )
-
-        new_fn = partial(endpoint)
+        new_fn = wraps(endpoint)(partial(endpoint))
         update_signature(new_fn, parameters=parameters)
-        wraps(endpoint)(new_fn)
+
+        # 日志记录器本身所需的依赖
+        new_fn = self._with_log_record_deps(new_fn, endpoint)
 
         self._endpoints[new_fn] = ofn
 
@@ -449,10 +470,10 @@ class AbstractLogRecord(
         *args: P.args,
         **kwargs: P.kwargs,
     ) -> str:
-        kwargs["__"] = {
+        kwargs["$"] = {
             "summary": summary,
-            self._log_record_deps_name: extra,
             "context": context,
+            "extra": extra,
         }
 
         message = self.success if summary.success else self.failure
@@ -485,6 +506,7 @@ class AbstractLogRecord(
         message: str,
         context: ContextT | None,
         endpoint: EndpointT,
+        extra: dict[str, Any] | None,
     ) -> SuccessDetailT:
         raise NotImplementedError
 
@@ -496,6 +518,7 @@ class AbstractLogRecord(
         message: str,
         context: ContextT | None,
         endpoint: EndpointT,
+        extra: dict[str, Any] | None,
     ) -> FailureDetailT:
         raise NotImplementedError
 
@@ -518,13 +541,11 @@ class AbstractLogRecord(
         def decorator(*args, **kwds):
             is_endpoint_fn = fn in self._endpoints
 
-            log_record_deps = None
+            log_record_deps = kwds.pop(self._log_record_deps_name, None)
             context: ContextT | None = None
 
             if is_endpoint_fn:
                 self._execute_before_handles(args, kwds)
-
-                log_record_deps = kwds.pop(self._log_record_deps_name, None)
 
                 summary, context = self._execute(fn, args, kwds)
             else:
@@ -543,6 +564,7 @@ class AbstractLogRecord(
                     context=context,
                     message=message,
                     endpoint=endpoint,
+                    extra=log_record_deps,
                 )
 
                 for i in self.success_handlers:
@@ -569,6 +591,7 @@ class AbstractLogRecord(
                     context=context,
                     message=message,
                     endpoint=endpoint,
+                    extra=log_record_deps,
                 )
 
                 for i in self.failure_handlers:
@@ -636,8 +659,8 @@ class AbstractAsyncLogRecord(
     ) -> str:
         kwargs["$"] = {
             "summary": summary,
-            self._log_record_deps_name: extra,
             "context": context,
+            "extra": extra,
         }
 
         message = self.success if summary.success else self.failure
@@ -673,6 +696,7 @@ class AbstractAsyncLogRecord(
         message: str,
         context: ContextT | None,
         endpoint: EndpointT,
+        extra: dict[str, Any] | None,
     ) -> SuccessDetailT:
         raise NotImplementedError
 
@@ -684,6 +708,7 @@ class AbstractAsyncLogRecord(
         message: str,
         context: ContextT | None,
         endpoint: EndpointT,
+        extra: dict[str, Any] | None,
     ) -> FailureDetailT:
         raise NotImplementedError
 
@@ -748,13 +773,13 @@ class AbstractAsyncLogRecord(
         async def decorator(*args, **kwds):
             is_endpoint_fn = fn in self._endpoints
 
-            log_record_deps = None
+            log_record_deps: dict[str, Any] | None = kwds.pop(
+                self._log_record_deps_name, None
+            )
             context: ContextT | None = None
 
             if is_endpoint_fn:
                 await self._execute_before_handles(args, kwds)
-
-                log_record_deps = kwds.pop(self._log_record_deps_name, None)
 
                 # kwds.setdefault(self._endpoint_deps_name, None)
                 # args, kwds = self._get_arguments(args, kwds)
@@ -776,6 +801,7 @@ class AbstractAsyncLogRecord(
                     context=context,
                     message=message,
                     endpoint=endpoint,
+                    extra=log_record_deps,
                 )
 
                 await self._execute_success_handlers(detail)
@@ -798,6 +824,7 @@ class AbstractAsyncLogRecord(
                     context=context,
                     message=message,
                     endpoint=endpoint,
+                    extra=log_record_deps,
                 )
 
                 await self._execute_failure_handlers(detail)

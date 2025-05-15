@@ -46,6 +46,7 @@ class LogRecordSuccessDetail(
     message: str
     context: ContextT
     endpoint: EndpointT
+    extra: dict[str, Any] | None
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -65,3 +66,4 @@ class LogRecordFailureDetail(
     message: str
     context: ContextT
     endpoint: EndpointT
+    extra: dict[str, Any] | None

@@ -31,6 +31,7 @@ class LogRecord(
         context: ContextT | None,
         message: str,
         endpoint: EndpointT,
+        extra,
     ) -> LogRecordSuccessDetail[T, ContextT | None, EndpointT]:
         return LogRecordSuccessDetail(
             message=message,
@@ -40,6 +41,7 @@ class LogRecord(
             kwds=summary.kwds,
             start=summary.start,
             endpoint=endpoint,
+            extra=extra,
         )
 
     def get_failure_detail(
@@ -49,6 +51,7 @@ class LogRecord(
         context: ContextT | None,
         message: str,
         endpoint: EndpointT,
+        extra,
     ) -> LogRecordFailureDetail[ExceptionT, ContextT | None, EndpointT]:
         return LogRecordFailureDetail(
             message=message,
@@ -58,6 +61,7 @@ class LogRecord(
             kwds=summary.kwds,
             start=summary.start,
             endpoint=endpoint,
+            extra=extra,
         )
 
 
@@ -81,6 +85,7 @@ class AsyncLogRecord(
         context: ContextT | None,
         message: str,
         endpoint: EndpointT,
+        extra,
     ) -> LogRecordSuccessDetail[T, ContextT | None, EndpointT]:
         return LogRecordSuccessDetail(
             message=message,
@@ -90,6 +95,7 @@ class AsyncLogRecord(
             kwds=summary.kwds,
             start=summary.start,
             endpoint=endpoint,
+            extra=extra,
         )
 
     async def get_failure_detail(
@@ -99,6 +105,7 @@ class AsyncLogRecord(
         context: ContextT | None,
         message: str,
         endpoint: EndpointT,
+        extra,
     ) -> LogRecordFailureDetail[ExceptionT, ContextT | None, EndpointT]:
         return LogRecordFailureDetail(
             message=message,
@@ -108,4 +115,5 @@ class AsyncLogRecord(
             kwds=summary.kwds,
             start=summary.start,
             endpoint=endpoint,
+            extra=extra,
         )

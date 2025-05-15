@@ -1,5 +1,5 @@
 from math import ceil
-from typing import Annotated, Generic, TypeVar
+from typing import TYPE_CHECKING, Annotated, Generic, TypeVar, overload
 
 from fastapi import Depends, Query
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
@@ -33,6 +33,38 @@ class PageParamsModel(BaseModel):
 
 
 PageParams = Annotated[PageParamsModel, Depends()]
+
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+    from contextlib import suppress
+
+    with suppress(ModuleNotFoundError):
+        from sqlalchemy import MappingResult, ScalarResult
+
+        @overload
+        def page(
+            model_class: type[BaseModelT],
+            pagination: PageParamsModel,
+            count: int,
+            results: ScalarResult,
+        ) -> Page[BaseModelT]: ...
+
+        @overload
+        def page(
+            model_class: type[BaseModelT],
+            pagination: PageParamsModel,
+            count: int,
+            results: MappingResult,
+        ) -> Page[BaseModelT]: ...
+
+        @overload
+        def page(
+            model_class: type[BaseModelT],
+            pagination: PageParamsModel,
+            count: int,
+            results: Sequence[Mapping],
+        ) -> Page[BaseModelT]: ...
 
 
 def page(
