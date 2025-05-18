@@ -1,5 +1,5 @@
+from .base import AsyncLogRecord, LogRecord
 from .context import AsyncLogRecordContext, LogRecordContext
-from .log_record import AsyncLogRecord, LogRecord
 from .models import (
     LogRecordFailureDetail,
     LogRecordFailureSummary,
