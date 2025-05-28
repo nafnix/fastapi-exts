@@ -1,7 +1,7 @@
 import inspect
 from collections.abc import Callable
 from functools import wraps
-from typing import TypeVar
+from typing import Annotated, TypeVar
 
 from fastapi import APIRouter, FastAPI, params
 from fastapi.routing import APIRoute, APIWebSocketRoute
@@ -125,7 +125,7 @@ class CBV:
 
         no_self_arguments = list_parameters(origin)
         no_self_arguments[0] = no_self_arguments[0].replace(
-            default=params.Depends(self._empty_dependency)
+            annotation=Annotated[None, params.Depends(self._empty_dependency)],
         )
         parameters = add_parameter(
             no_self_arguments,
