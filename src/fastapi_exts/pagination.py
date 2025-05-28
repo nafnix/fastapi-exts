@@ -1,5 +1,6 @@
+from collections.abc import Mapping, Sequence
 from math import ceil
-from typing import TYPE_CHECKING, Annotated, Generic, TypeVar, overload
+from typing import Annotated, Generic, NamedTuple, TypeVar, overload
 
 from fastapi import Depends, Query
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
@@ -35,36 +36,31 @@ class PageParamsModel(BaseModel):
 PageParams = Annotated[PageParamsModel, Depends()]
 
 
-if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
-    from contextlib import suppress
+@overload
+def page(
+    model_class: type[BaseModelT],
+    pagination: PageParamsModel,
+    count: int,
+    results: Sequence[Mapping],
+) -> Page[BaseModelT]: ...
 
-    with suppress(ModuleNotFoundError):
-        from sqlalchemy import MappingResult, ScalarResult
 
-        @overload
-        def page(
-            model_class: type[BaseModelT],
-            pagination: PageParamsModel,
-            count: int,
-            results: ScalarResult,
-        ) -> Page[BaseModelT]: ...
+@overload
+def page(
+    model_class: type[BaseModelT],
+    pagination: PageParamsModel,
+    count: int,
+    results: Sequence[NamedTuple],
+) -> Page[BaseModelT]: ...
 
-        @overload
-        def page(
-            model_class: type[BaseModelT],
-            pagination: PageParamsModel,
-            count: int,
-            results: MappingResult,
-        ) -> Page[BaseModelT]: ...
 
-        @overload
-        def page(
-            model_class: type[BaseModelT],
-            pagination: PageParamsModel,
-            count: int,
-            results: Sequence[Mapping],
-        ) -> Page[BaseModelT]: ...
+@overload
+def page(
+    model_class: type[BaseModelT],
+    pagination: PageParamsModel,
+    count: int,
+    results,
+) -> Page[BaseModelT]: ...
 
 
 def page(

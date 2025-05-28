@@ -102,41 +102,48 @@ class CBV:
         return collect_class_dependencies
 
     @staticmethod
-    def _create_class_instance(*, cls: type, name: str, kwds: dict):
+    def _create_class_instance(*, cls: type, **dependencies):
+        """创建类实例"""
         instance = cls()
-        class_dependencies_: dict = kwds.pop(name)
-        for k, v in class_dependencies_.items():
+        for k, v in dependencies.items():
             setattr(instance, k, v)
+
+        post_init = getattr(instance, "__post_init__", None)
+        if callable(post_init):
+            post_init()
+
         return instance
 
-    def _create_instance_function(self, fn: Callable, cls: type):
+    def _create_instance_function(self, origin: Callable, cls: type):
+        """创建实例函数"""
+
         class_dependencies = self._create_class_dependencies(cls)
         name = class_dependencies.__name__
 
+        no_self_arguments = list_parameters(origin)[1:]
         parameters = add_parameter(
-            list_parameters(fn)[1:],
+            no_self_arguments,
             name=name,
             default=params.Depends(class_dependencies),
         )
 
-        fn = new_function(fn, parameters=parameters)
-        if Is.coroutine_function(fn):
+        # 创建一个不带有 self 参数的函数, 并且带有类依赖的函数
+        fn = new_function(origin, parameters=parameters)
+        if Is.coroutine_function(origin):
 
             @wraps(fn)
             async def async_wrapper(*args, **kwds):
-                instance = self._create_class_instance(
-                    cls=cls, name=name, kwds=kwds
-                )
-                return await fn(instance, *args, **kwds)
+                dependencies = kwds.pop(name)
+                instance = self._create_class_instance(cls=cls, **dependencies)
+                return await origin(instance, *args, **kwds)
 
             return async_wrapper
 
         @wraps(fn)
         def wrapper(*args, **kwds):
-            instance = self._create_class_instance(
-                cls=cls, name=name, kwds=kwds
-            )
-            return fn(instance, *args, **kwds)
+            dependencies = kwds.pop(name)
+            instance = self._create_class_instance(cls=cls, **dependencies)
+            return origin(instance, *args, **kwds)
 
         return wrapper
 
@@ -148,11 +155,11 @@ class CBV:
         ]
 
         for _index, route in api_routes:
-            fn = route.endpoint
-            if hasattr(cls, fn.__name__):
+            endpoint = route.endpoint
+            if hasattr(cls, endpoint.__name__):
                 self._router.routes.remove(route)
-                if not isinstance(fn, staticmethod):
-                    new_fn = self._create_instance_function(fn, cls)
+                if not isinstance(endpoint, staticmethod):
+                    new_fn = self._create_instance_function(endpoint, cls)
                     setattr(route, "endpoint", new_fn)
                     logger.debug(
                         f"Update route {route.path} endpoint to {new_fn.__name__}"  # noqa: E501
