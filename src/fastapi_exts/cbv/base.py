@@ -114,13 +114,19 @@ class CBV:
 
         return instance
 
+    @staticmethod
+    def _empty_dependency(): ...
+
     def _create_instance_function(self, origin: Callable, cls: type):
         """创建实例函数"""
 
         class_dependencies = self._create_class_dependencies(cls)
         name = class_dependencies.__name__
 
-        no_self_arguments = list_parameters(origin)[1:]
+        no_self_arguments = list_parameters(origin)
+        no_self_arguments[0] = no_self_arguments[0].replace(
+            default=params.Depends(self._empty_dependency)
+        )
         parameters = add_parameter(
             no_self_arguments,
             name=name,
@@ -133,6 +139,7 @@ class CBV:
 
             @wraps(fn)
             async def async_wrapper(*args, **kwds):
+                kwds.pop("self")
                 dependencies = kwds.pop(name)
                 instance = self._create_class_instance(cls=cls, **dependencies)
                 return await origin(instance, *args, **kwds)
