@@ -1,8 +1,7 @@
-from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import Depends, Request
+from fastapi import Request
+from fastapi.params import Depends
 
 
 IP_HEADERS = [
@@ -42,27 +41,3 @@ def request_user_agent(request: Request):
 
 
 RequestUserAgent = Annotated[str | None, Depends(request_user_agent)]
-
-
-@dataclass
-class Info:
-    id: str
-    time: datetime
-    ip: str | None = None
-    ua: str | None = None
-
-
-def request_info(
-    request: Request,
-    request_ip: RequestIP,
-    request_user_agent: RequestUserAgent,
-):
-    return Info(
-        id=request.headers["x-request-id"],
-        time=datetime.now(UTC),
-        ip=request_ip,
-        ua=request_user_agent,
-    )
-
-
-RequestInfo = Annotated[Info, Depends(request_info)]
