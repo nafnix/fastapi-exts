@@ -1,15 +1,7 @@
-from typing import Protocol
-
 from pydantic import BaseModel
 
-from ._utils import merge
-
-
-class _HTTPErrorInterface(Protocol):
-    status: int
-
-    @classmethod
-    def response_class(cls) -> type[BaseModel]: ...
+from fastapi_exts._utils import merge
+from fastapi_exts.interfaces import HTTPError
 
 
 def _merge_responses(
@@ -28,7 +20,7 @@ def _merge_responses(
             target[status] = response
 
 
-def error_responses(*errors: type[_HTTPErrorInterface]):
+def error_responses(*errors: type[HTTPError]):
     source = {}
 
     for e in errors:
@@ -42,12 +34,12 @@ def error_responses(*errors: type[_HTTPErrorInterface]):
     return source
 
 
-Response = tuple[int, type[BaseModel]] | int | type[_HTTPErrorInterface]
+Response = tuple[int, type[BaseModel]] | int | type[HTTPError]
 
 
 def build_responses(*responses: Response):
     result = {}
-    errors: list[type[_HTTPErrorInterface]] = []
+    errors: list[type[HTTPError]] = []
 
     for arg in responses:
         status = None

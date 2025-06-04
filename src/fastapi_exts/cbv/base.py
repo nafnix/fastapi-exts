@@ -17,7 +17,7 @@ from fastapi_exts.logger import logger
 from fastapi_exts.responses import Response, build_responses
 
 from ._utils import iter_class_dependency
-
+from fastapi_exts.provider import parse_providers, Provider
 
 T = TypeVar("T")
 
@@ -84,7 +84,18 @@ class CBV:
 
         return decorator
 
-    def _create_class_dependencies(self, cls: type):
+    @staticmethod
+    def _on_provider_parameter(
+        provider: Provider, route: APIRoute | APIWebSocketRoute
+    ):
+        if isinstance(route, APIRoute):
+            route.responses.update(build_responses(*provider.exceptions))
+
+    def _create_class_dependencies(
+        self,
+        cls: type,
+        route: APIRoute | APIWebSocketRoute,
+    ):
         def collect_class_dependencies(**kwds):
             return kwds
 
@@ -99,7 +110,11 @@ class CBV:
         ]
 
         update_signature(collect_class_dependencies, parameters=parameters)
-        return collect_class_dependencies
+
+        return parse_providers(
+            collect_class_dependencies,
+            lambda p: self._on_provider_parameter(p, route),
+        )
 
     @staticmethod
     def _create_class_instance(*, cls: type, **dependencies):
@@ -117,30 +132,40 @@ class CBV:
     @staticmethod
     def _empty_dependency(): ...
 
-    def _create_instance_function(self, origin: Callable, cls: type):
+    def _create_instance_function(
+        self,
+        origin: Callable,
+        cls: type,
+        route: APIRoute | APIWebSocketRoute,
+    ):
         """创建实例函数"""
 
-        class_dependencies = self._create_class_dependencies(cls)
-        name = class_dependencies.__name__
+        class_dependencies = self._create_class_dependencies(cls, route)
+        cls_dep_name = class_dependencies.__name__
 
+        # 把 self 转为类型为空依赖的参数
+        # 类似: (self: Annotated[None, params.Depends(lambda: None)], ...)
         no_self_arguments = list_parameters(origin)
         no_self_arguments[0] = no_self_arguments[0].replace(
             annotation=Annotated[None, params.Depends(self._empty_dependency)],
         )
         parameters = add_parameter(
             no_self_arguments,
-            name=name,
+            name=cls_dep_name,
             default=params.Depends(class_dependencies),
         )
 
-        # 创建一个不带有 self 参数的函数, 并且带有类依赖的函数
-        fn = new_function(origin, parameters=parameters)
+        # 创建一个新函数, 并且带有类依赖的函数
+        fn = parse_providers(
+            new_function(origin, parameters=parameters),
+            lambda p: self._on_provider_parameter(p, route),
+        )
         if Is.coroutine_function(origin):
 
             @wraps(fn)
             async def async_wrapper(*args, **kwds):
-                kwds.pop("self")
-                dependencies = kwds.pop(name)
+                kwds.pop("self", None)
+                dependencies = kwds.pop(cls_dep_name)
                 instance = self._create_class_instance(cls=cls, **dependencies)
                 return await origin(instance, *args, **kwds)
 
@@ -148,7 +173,8 @@ class CBV:
 
         @wraps(fn)
         def wrapper(*args, **kwds):
-            dependencies = kwds.pop(name)
+            kwds.pop("self", None)
+            dependencies = kwds.pop(cls_dep_name)
             instance = self._create_class_instance(cls=cls, **dependencies)
             return origin(instance, *args, **kwds)
 
@@ -165,12 +191,20 @@ class CBV:
             endpoint = route.endpoint
             if hasattr(cls, endpoint.__name__):
                 self._router.routes.remove(route)
-                if not isinstance(endpoint, staticmethod):
-                    new_fn = self._create_instance_function(endpoint, cls)
-                    setattr(route, "endpoint", new_fn)
-                    logger.debug(
-                        f"Update route {route.path} endpoint to {new_fn.__name__}"  # noqa: E501
+
+                if isinstance(endpoint, staticmethod):
+                    new_fn = parse_providers(
+                        endpoint,
+                        lambda p: self._on_provider_parameter(p, route),
                     )
+
+                else:
+                    new_fn = self._create_instance_function(
+                        endpoint, cls, route
+                    )
+
+                setattr(route, "endpoint", new_fn)
+
                 self._router.routes.append(route)
 
         self.router.include_router(self._router)

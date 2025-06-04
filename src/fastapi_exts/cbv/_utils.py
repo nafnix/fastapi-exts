@@ -6,6 +6,8 @@ from typing import Annotated, TypeGuard, get_args, get_origin
 
 from fastapi import params
 
+from fastapi_exts.provider import Provider
+
 
 def iter_class_functions(
     cls: type,
@@ -37,18 +39,13 @@ def get_dependency_from_annotated(
 _Dependency = params.Param | params.Body | params.Depends
 
 
-def _get_class_dependencies(
-    cls: type,
-) -> dict[
-    str,
-    tuple[
-        _Dependency | inspect.Parameter.empty, type | inspect.Parameter.empty
-    ],
-]:
-    dependencies = dict[
+def _get_class_dependencies(cls: type):
+    result = dict[
         str,
         tuple[
-            _Dependency | inspect.Parameter.empty,
+            # 依赖
+            _Dependency | Provider | inspect.Parameter.empty,
+            # 依赖的类型
             type | inspect.Parameter.empty,
         ],
     ]()
@@ -61,23 +58,26 @@ def _get_class_dependencies(
         if is_annotated(type_) and (
             dependency := get_dependency_from_annotated(type_)
         ):
-            dependencies.setdefault(name, (dependency[1], dependency[0]))
+            result.setdefault(name, (dependency[1], dependency[0]))
         else:
             annotations.setdefault(name, type_)
 
     for name, obj in inspect.getmembers(cls):
         if isinstance(obj, _Dependency):
-            dependencies.setdefault(
+            result.setdefault(
                 name,
                 (obj, annotations.pop(name, inspect.Parameter.empty)),
             )
+        elif isinstance(obj, Provider):
+            result.setdefault(name, (obj, inspect.Parameter.empty))
+
     for name, typ in annotations.items():
         value = tuple[
             _Dependency | inspect.Parameter.empty,
             type | inspect.Parameter.empty,
         ]([inspect.Parameter.empty, typ])
-        dependencies.setdefault(name, value)
-    return dependencies
+        result.setdefault(name, value)
+    return result
 
 
 def iter_class_dependency(
@@ -85,7 +85,7 @@ def iter_class_dependency(
 ) -> Generator[
     tuple[
         str,
-        _Dependency | inspect.Parameter.empty,
+        _Dependency | Provider | inspect.Parameter.empty,
         type | inspect.Parameter.empty,
     ],
     None,
