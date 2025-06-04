@@ -13,11 +13,12 @@ from fastapi_exts._utils import (
     new_function,
     update_signature,
 )
-from fastapi_exts.logger import logger
+from fastapi_exts.provider import Provider
 from fastapi_exts.responses import Response, build_responses
+from fastapi_exts.routing import ExtAPIRouter, analyze_and_update
 
 from ._utils import iter_class_dependency
-from fastapi_exts.provider import parse_providers, Provider
+
 
 T = TypeVar("T")
 
@@ -28,7 +29,7 @@ Fn = TypeVar("Fn", bound=Callable)
 class CBV:
     def __init__(self, router: APIRouter | FastAPI, /) -> None:
         self.router = router
-        self._router = APIRouter()
+        self._router = ExtAPIRouter()
 
     @property
     def get(self):
@@ -85,17 +86,11 @@ class CBV:
         return decorator
 
     @staticmethod
-    def _on_provider_parameter(
-        provider: Provider, route: APIRoute | APIWebSocketRoute
-    ):
+    def _on_provider(provider: Provider, route: APIRoute | APIWebSocketRoute):
         if isinstance(route, APIRoute):
             route.responses.update(build_responses(*provider.exceptions))
 
-    def _create_class_dependencies(
-        self,
-        cls: type,
-        route: APIRoute | APIWebSocketRoute,
-    ):
+    def _create_class_dependencies(self, cls: type):
         def collect_class_dependencies(**kwds):
             return kwds
 
@@ -111,10 +106,7 @@ class CBV:
 
         update_signature(collect_class_dependencies, parameters=parameters)
 
-        return parse_providers(
-            collect_class_dependencies,
-            lambda p: self._on_provider_parameter(p, route),
-        )
+        return collect_class_dependencies
 
     @staticmethod
     def _create_class_instance(*, cls: type, **dependencies):
@@ -136,15 +128,14 @@ class CBV:
         self,
         origin: Callable,
         cls: type,
-        route: APIRoute | APIWebSocketRoute,
+        class_dependencies: Callable,
     ):
         """创建实例函数"""
 
-        class_dependencies = self._create_class_dependencies(cls, route)
         cls_dep_name = class_dependencies.__name__
 
         # 把 self 转为类型为空依赖的参数
-        # 类似: (self: Annotated[None, params.Depends(lambda: None)], ...)
+        # e.g.: (self: Annotated[None, Depends(lambda: None)], ...)
         no_self_arguments = list_parameters(origin)
         no_self_arguments[0] = no_self_arguments[0].replace(
             annotation=Annotated[None, params.Depends(self._empty_dependency)],
@@ -156,10 +147,7 @@ class CBV:
         )
 
         # 创建一个新函数, 并且带有类依赖的函数
-        fn = parse_providers(
-            new_function(origin, parameters=parameters),
-            lambda p: self._on_provider_parameter(p, route),
-        )
+        fn = new_function(origin, parameters=parameters)
         if Is.coroutine_function(origin):
 
             @wraps(fn)
@@ -193,14 +181,21 @@ class CBV:
                 self._router.routes.remove(route)
 
                 if isinstance(endpoint, staticmethod):
-                    new_fn = parse_providers(
-                        endpoint,
-                        lambda p: self._on_provider_parameter(p, route),
-                    )
+                    new_fn = endpoint
 
                 else:
+                    class_dependencies = self._create_class_dependencies(cls)
+                    for i in analyze_and_update(class_dependencies):
+                        responses = {}
+                        responses.update(build_responses(*i.exceptions))
+                        if i.provider:
+                            responses.update(
+                                build_responses(*i.provider.exceptions)
+                            )
+                        if isinstance(route, APIRoute):
+                            route.responses.update(responses)
                     new_fn = self._create_instance_function(
-                        endpoint, cls, route
+                        endpoint, cls, class_dependencies
                     )
 
                 setattr(route, "endpoint", new_fn)

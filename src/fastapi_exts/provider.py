@@ -1,12 +1,13 @@
 import inspect
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from copy import copy
-from typing import Generic, TypeVar, cast
+from typing import Any, Generic, TypeVar, cast
 
-from fastapi import Depends
+from fastapi import params
+from fastapi.dependencies.utils import get_typed_signature
 
-from fastapi_exts._utils import update_signature
-from fastapi_exts.interfaces import HTTPError
+from fastapi_exts.interfaces import BaseHTTPError
+from fastapi_exts.utils import update_signature
 
 
 class _Undefined: ...
@@ -66,15 +67,15 @@ class Provider(Generic[T]):
         dependency: Callable[..., T],
         *,
         use_cache: bool = True,
-        exceptions: Sequence[type[HTTPError]] | None = None,
+        exceptions: list[type[BaseHTTPError]] | None = None,
     ) -> None:
         self.dependency = dependency
         self.use_cache = use_cache
-        self.exceptions: Sequence[type[HTTPError]] = exceptions or []
+        self.exceptions: list[type[BaseHTTPError]] = exceptions or []
         self.value: T = cast(T, _Undefined)
 
 
-def _create_dependency(provider: Provider):
+def _create_provider_dependency(provider: Provider):
     def dependency(value=None):
         provider.value = value
         return provider
@@ -82,7 +83,7 @@ def _create_dependency(provider: Provider):
     parameters = list(inspect.signature(dependency).parameters.values())
 
     parameters[0] = parameters[0].replace(
-        default=Depends(
+        default=params.Depends(
             provider.dependency,
             use_cache=provider.use_cache,
         )
@@ -92,16 +93,34 @@ def _create_dependency(provider: Provider):
     return dependency
 
 
-def parse_providers(fn, handler: Callable[[Provider], None] | None = None):
-    parameters = list(inspect.signature(fn).parameters.copy().values())
-    for index, p in enumerate(parameters):
-        provider = p.default
-        if isinstance(provider, Provider):
-            new_provider = copy(provider)
-            dependency = _create_dependency(new_provider)
-            parameters[index] = p.replace(default=Depends(dependency))
-            if handler:
-                handler(new_provider)
+def _analyze_provider(*, value: Any) -> None | Provider:
+    provider = None
+    if isinstance(value, Provider):
+        provider = copy(value)
 
-    update_signature(fn, parameters=parameters)
+    return provider
+
+
+def transform_providers(fn: Callable):
+    """分析并更新函数签名"""
+
+    endpoint_signature = get_typed_signature(fn)
+    signature_params = dict(endpoint_signature.parameters.copy())
+
+    for name, param in signature_params.items():
+        provider = _analyze_provider(value=param.default)
+        if provider is not None:
+            dependency = _create_provider_dependency(provider)
+            signature_params[name] = signature_params[name].replace(
+                default=params.Depends(
+                    dependency,
+                    use_cache=provider.use_cache,
+                )
+            )
+
+            # 递归更新
+            transform_providers(provider.dependency)
+            continue
+
+    update_signature(fn, parameters=signature_params.values())
     return fn

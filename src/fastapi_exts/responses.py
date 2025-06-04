@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 
 from fastapi_exts._utils import merge
-from fastapi_exts.interfaces import HTTPError
+from fastapi_exts.interfaces import BaseHTTPError
 
 
 def _merge_responses(
@@ -20,7 +20,7 @@ def _merge_responses(
             target[status] = response
 
 
-def error_responses(*errors: type[HTTPError]):
+def error_responses(*errors: type[BaseHTTPError]):
     source = {}
 
     for e in errors:
@@ -34,12 +34,12 @@ def error_responses(*errors: type[HTTPError]):
     return source
 
 
-Response = tuple[int, type[BaseModel]] | int | type[HTTPError]
+Response = tuple[int, type[BaseModel]] | int | type[BaseHTTPError]
 
 
 def build_responses(*responses: Response):
     result = {}
-    errors: list[type[HTTPError]] = []
+    errors: list[type[BaseHTTPError]] = []
 
     for arg in responses:
         status = None

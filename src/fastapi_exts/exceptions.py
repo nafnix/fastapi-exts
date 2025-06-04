@@ -7,6 +7,8 @@ from fastapi.responses import JSONResponse, ORJSONResponse, Response
 from fastapi.utils import is_body_allowed_for_status_code
 from pydantic import BaseModel, create_model
 
+from fastapi_exts.interfaces import BaseHTTPError
+
 
 try:
     import orjson  # type: ignore
@@ -28,7 +30,7 @@ class WrapperError(BaseModel, Generic[BaseModelT]):
 WrapperErrorT = TypeVar("WrapperErrorT", bound=WrapperError)
 
 
-class NamedHTTPError(Exception, Generic[WrapperErrorT, BaseModelT]):
+class NamedHTTPError(BaseHTTPError, Generic[WrapperErrorT, BaseModelT]):
     status: int = status.HTTP_400_BAD_REQUEST
     code: str | None = None
     targets: Sequence[Any] | None = None

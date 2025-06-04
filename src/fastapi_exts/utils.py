@@ -1,4 +1,5 @@
 import inspect
+from collections.abc import Callable, Iterable
 from typing import Any
 
 
@@ -43,3 +44,26 @@ def inject_parameter(
         signature.replace(parameters=parameters),
     )
     return inject_index
+
+
+class _Undefined: ...
+
+
+def update_signature(
+    fn: Callable,
+    *,
+    parameters: Iterable[inspect.Parameter]
+    | None
+    | type[_Undefined] = _Undefined,
+    return_annotation: type | None = _Undefined,
+):
+    signature = inspect.signature(fn)
+    kwds = {}
+    if parameters != _Undefined:
+        kwds.setdefault("parameters", parameters)
+
+    if return_annotation != _Undefined:
+        kwds.setdefault("return_annotation", return_annotation)
+
+    signature = signature.replace(**kwds)
+    setattr(fn, "__signature__", signature)

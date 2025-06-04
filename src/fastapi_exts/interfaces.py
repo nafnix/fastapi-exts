@@ -1,10 +1,12 @@
-from typing import Protocol
+from abc import ABC, abstractmethod
 
 from pydantic import BaseModel
 
 
-class HTTPError(Protocol):
+class BaseHTTPError(Exception, ABC):
     status: int
 
     @classmethod
-    def response_class(cls) -> type[BaseModel]: ...
+    @abstractmethod
+    def response_class(cls) -> type[BaseModel]:
+        raise NotImplementedError
