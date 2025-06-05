@@ -1,7 +1,7 @@
 import inspect
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from copy import copy
-from typing import Any, Generic, TypeVar, cast
+from typing import Any, Generic, TypeVar, cast, overload
 
 from fastapi import params
 from fastapi.dependencies.utils import get_typed_signature
@@ -62,9 +62,27 @@ class Provider(Generic[T]):
     ```
     """
 
+    @overload
     def __init__(
         self,
         dependency: Callable[..., T],
+        *,
+        use_cache: bool = True,
+        exceptions: list[type[BaseHTTPError]] | None = None,
+    ) -> None: ...
+
+    @overload
+    def __init__(
+        self,
+        dependency: Callable[..., Awaitable[T]],
+        *,
+        use_cache: bool = True,
+        exceptions: list[type[BaseHTTPError]] | None = None,
+    ) -> None: ...
+
+    def __init__(
+        self,
+        dependency: Callable[..., T] | Callable[..., Awaitable[T]],
         *,
         use_cache: bool = True,
         exceptions: list[type[BaseHTTPError]] | None = None,
