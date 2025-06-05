@@ -42,7 +42,9 @@ def analyze_param(*, annotation: Any, value: Any) -> ParamExtra:
         annotated_args = get_args(annotation)
         # 获取注解是异常的值
         exceptions = [
-            arg for arg in annotated_args[1:] if issubclass(arg, BaseHTTPError)
+            arg
+            for arg in annotated_args[1:]
+            if type(arg) is type and issubclass(arg, BaseHTTPError)
         ]
 
     provider = None
