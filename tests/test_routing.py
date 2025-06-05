@@ -1,17 +1,25 @@
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from fastapi_exts.exceptions import NamedHTTPError
 from fastapi_exts.provider import Provider
 from fastapi_exts.routing import ExtAPIRouter
+
+
+class AError(NamedHTTPError):
+    status = 401
+
+
+class BError(NamedHTTPError):
+    status = 403
 
 
 def test_ext_api_router():
     value = id(object())
 
-    def dependency1() -> int:
-        return value
-
-    def dependency2(dependency=Provider(dependency1)) -> int:
+    def dependency2(
+        dependency=Provider(lambda: value, exceptions=[BError]),
+    ) -> int:
         return dependency.value
 
     router = ExtAPIRouter()
@@ -19,7 +27,7 @@ def test_ext_api_router():
     path = "/"
 
     @router.get(path)
-    def api(an_value=Provider(dependency2)):
+    def api(an_value=Provider(dependency2, exceptions=[AError])):
         return an_value.value
 
     app = FastAPI()
@@ -29,3 +37,7 @@ def test_ext_api_router():
 
     res = test_client.get(path)
     assert res.json() == value
+
+    openapi = app.openapi()
+    assert str(AError.status) in openapi["paths"][path]["get"]["responses"]
+    assert str(BError.status) in openapi["paths"][path]["get"]["responses"]

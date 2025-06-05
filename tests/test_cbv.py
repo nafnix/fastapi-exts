@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from fastapi_exts.cbv import CBV
+from fastapi_exts.exceptions import NamedHTTPError
 from fastapi_exts.provider import Provider
 
 
@@ -14,11 +15,18 @@ path = "/"
 value = id(object())
 
 
-def dependency() -> int:
-    return value
+class AError(NamedHTTPError):
+    status = 401
 
 
-provider = Provider(dependency)
+class BError(NamedHTTPError):
+    status = 403
+
+
+provider = Provider(
+    lambda: value,
+    exceptions=[AError, BError],
+)
 
 
 @cbv
@@ -48,3 +56,11 @@ def test_api_router():
 
     res = test_client.get(path2)
     assert res.json() == value
+
+    openapi = app.openapi()
+
+    assert str(AError.status) in openapi["paths"][path]["get"]["responses"]
+    assert str(BError.status) in openapi["paths"][path]["get"]["responses"]
+
+    assert str(AError.status) in openapi["paths"][path2]["get"]["responses"]
+    assert str(BError.status) in openapi["paths"][path2]["get"]["responses"]

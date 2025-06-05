@@ -46,10 +46,10 @@ class ExtAPIRouter(routing.APIRouter):
             if i.provider:
                 responses.update(build_responses(*i.provider.exceptions))
 
-        super().add_api_route(path, endpoint, **kwds)
+        super().add_api_route(path, endpoint, responses=responses, **kwds)
 
     def add_api_websocket_route(
         self, path: str, endpoint: Callable[..., Any], *args, **kwds
     ):
         analyze_and_update(endpoint)
-        super().add_api_route(path, endpoint, *args, **kwds)
+        super().add_api_websocket_route(path, endpoint, *args, **kwds)
