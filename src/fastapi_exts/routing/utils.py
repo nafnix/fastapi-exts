@@ -64,6 +64,7 @@ def analyze_and_update(fn: Callable[..., Any]) -> list[ParamExtra]:
             annotation=param.annotation,
             value=param.default,
         )
+        result.append(extra)
         if extra.provider is not None:
             dependency = _create_provider_dependency(extra.provider)
             signature_params[name] = signature_params[name].replace(
