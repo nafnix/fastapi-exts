@@ -52,7 +52,7 @@ class NamedHTTPError(BaseHTTPError, Generic[WrapperErrorT, BaseModelT]):
         error_code = cls.code or type_
         kwargs = {
             "code": (Literal[error_code], ...),
-            "message": (Literal[cls.message] if cls.message else str, ...),
+            "message": (str, ...),
         }
         if cls.targets:
             kwargs["target"] = (Literal[*cls.transformed_targets()], ...)
