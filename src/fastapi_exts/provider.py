@@ -31,7 +31,7 @@ class Provider(Generic[T]):
 
 
     @app.get("/")
-    @parse_providers
+    @transform_providers
     def a(number=Provider(lambda: 1)):
         return number.value  # -> 1
     ```
