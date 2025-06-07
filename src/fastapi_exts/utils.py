@@ -2,6 +2,26 @@ import inspect
 from collections.abc import Callable, Iterable
 from typing import Any
 
+from fastapi_exts._utils import _undefined
+
+
+def update_signature(
+    fn: Callable,
+    *,
+    parameters: Iterable[inspect.Parameter] | None = _undefined,
+    return_annotation: type | None = _undefined,
+):
+    signature = inspect.signature(fn)
+
+    if parameters != _undefined:
+        parameters = list(parameters) if parameters is not None else parameters
+        signature = signature.replace(parameters=parameters)
+
+    if return_annotation != _undefined:
+        signature = signature.replace(return_annotation=return_annotation)
+
+    setattr(fn, "__signature__", signature)
+
 
 def inject_parameter(
     fn,
@@ -38,32 +58,6 @@ def inject_parameter(
 
     parameters.insert(inject_index, parameter)
 
-    setattr(
-        fn,
-        "__signature__",
-        signature.replace(parameters=parameters),
-    )
+    update_signature(fn, parameters=parameters)
+
     return inject_index
-
-
-class _Undefined: ...
-
-
-def update_signature(
-    fn: Callable,
-    *,
-    parameters: Iterable[inspect.Parameter]
-    | None
-    | type[_Undefined] = _Undefined,
-    return_annotation: type | None = _Undefined,
-):
-    signature = inspect.signature(fn)
-    kwds = {}
-    if parameters != _Undefined:
-        kwds.setdefault("parameters", parameters)
-
-    if return_annotation != _Undefined:
-        kwds.setdefault("return_annotation", return_annotation)
-
-    signature = signature.replace(**kwds)
-    setattr(fn, "__signature__", signature)

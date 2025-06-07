@@ -8,73 +8,27 @@ from collections.abc import (
     Sequence,
 )
 from contextlib import AbstractAsyncContextManager, AbstractContextManager
-from datetime import UTC, datetime
 from functools import partial, update_wrapper
 from typing import (
     Annotated,
     Any,
-    NamedTuple,
     ParamSpec,
     TypeGuard,
     TypeVar,
+    cast,
     get_origin,
-    # overload,
     overload,
 )
-
-
-class Datetime:
-    @staticmethod
-    def to_utc(dt: datetime, /) -> datetime:
-        """转成 UTC 时间
-
-        :param dt: 时间
-        :return: UTC 时间
-        """
-        if dt.tzinfo is None:
-            return dt.replace(tzinfo=UTC)
-        return dt.astimezone(UTC)
-
-    @staticmethod
-    def to_naive(dt: datetime, /) -> datetime:
-        """去除时区标识
-
-        :param v: 时间
-        :return: 不带时区标识的时间
-        """
-        return dt.replace(tzinfo=None)
-
-    @classmethod
-    def to_utc_naive(cls, dt: datetime, /) -> datetime:
-        """将时间转换成不带时区标识的 UTC 时间
-
-        :param v: 时间
-        :return: 不带时区标识的 UTC 时间
-        """
-        return cls.to_naive(cls.to_utc(dt))
-
-
-# from fastapi.params import Depends
-# from pydantic.fields import FieldInfo
 
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
 
 
-class _Undefined:
-    def __new__(cls):
-        k = "_singleton"
-        if not hasattr(cls, k):
-            setattr(cls, k, super().__new__(cls))
-        return getattr(cls, k)
-
-    @classmethod
-    def ne(cls, v):
-        return v is not cls()
+class _Undefined: ...
 
 
-_undefined = _Undefined()
+_undefined = cast(Any, _Undefined)
 
 
 class Is:
@@ -101,117 +55,23 @@ class Is:
         return hasattr(value, "__enter__") and hasattr(value, "__exit__")
 
 
-def add_document(fn: Callable, document: str):
-    if fn.__doc__ is None:
-        fn.__doc__ = document
-    else:
-        fn.__doc__ += f"\n\n{document}"
-
-
 def list_parameters(fn: Callable, /) -> list[inspect.Parameter]:
     signature = inspect.signature(fn)
     return list(signature.parameters.values())
 
 
-class WithParameterResult(NamedTuple):
-    parameters: list[inspect.Parameter]
-    parameter: inspect.Parameter
-    parameter_index: int
-
-
-@overload
-def with_parameter(
-    fn: Callable,
-    *,
-    name: str,
-    annotation: type | Annotated,
-) -> WithParameterResult: ...
-@overload
-def with_parameter(
-    fn: Callable,
-    *,
-    name: str,
-    default: Any,
-) -> WithParameterResult: ...
-@overload
-def with_parameter(
-    fn: Callable,
-    *,
-    name: str,
-    annotation: type | Annotated,
-    default: Any,
-) -> WithParameterResult: ...
-
-
-def with_parameter(
-    fn: Callable,
-    *,
-    name: str,
-    annotation: type | Annotated | _Undefined = _undefined,
-    default: Any = _undefined,
-) -> WithParameterResult:
-    kwargs = {}
-    if annotation is not _undefined:
-        kwargs["annotation"] = annotation
-    if default is not _undefined:
-        kwargs["default"] = default
-
-    parameters = list_parameters(fn)
-    parameter = inspect.Parameter(
-        name=name,
-        kind=inspect.Parameter.KEYWORD_ONLY,
-        **kwargs,
-    )
-    index = -1
-    if parameters and parameters[index].kind == inspect.Parameter.VAR_KEYWORD:
-        parameters.insert(index, parameter)
-        index = -2
-    else:
-        parameters.append(parameter)
-
-    return WithParameterResult(parameters, parameter, index)
-
-
-def add_parameter(
-    parameters: list[inspect.Parameter],
-    *,
-    name: str,
-    annotation: type | Annotated | _Undefined = _undefined,
-    default: Any = _undefined,
-) -> list[inspect.Parameter]:
-    parameters = parameters[::]
-    kwargs = {}
-    if annotation is not _undefined:
-        kwargs["annotation"] = annotation
-    if default is not _undefined:
-        kwargs["default"] = default
-
-    parameter = inspect.Parameter(
-        name=name,
-        kind=inspect.Parameter.KEYWORD_ONLY,
-        **kwargs,
-    )
-    index = -1
-    if parameters and parameters[index].kind == inspect.Parameter.VAR_KEYWORD:
-        parameters.insert(index, parameter)
-        index = -2
-    else:
-        parameters.append(parameter)
-    return parameters
-
-
 def update_signature(
     fn: Callable,
     *,
-    parameters: Sequence[inspect.Parameter] | None | _Undefined = _undefined,
-    return_annotation: type | None | _Undefined = _undefined,
+    parameters: Sequence[inspect.Parameter] | None = _undefined,
+    return_annotation: type | None = _undefined,
 ):
     signature = inspect.signature(fn)
 
-    if not isinstance(parameters, _Undefined):
+    if parameters != _undefined:
         signature = signature.replace(parameters=parameters)
 
-    if not isinstance(return_annotation, _Undefined):
+    if return_annotation != _undefined:
         signature = signature.replace(return_annotation=return_annotation)
 
     setattr(fn, "__signature__", signature)
@@ -220,8 +80,8 @@ def update_signature(
 def new_function(
     fn: Callable,
     *,
-    parameters: Sequence[inspect.Parameter] | None | _Undefined = _undefined,
-    return_annotation: type | None | _Undefined = _undefined,
+    parameters: Sequence[inspect.Parameter] | None = _undefined,
+    return_annotation: type | None = _undefined,
 ):
     result = update_wrapper(partial(fn), fn)
     update_signature(
