@@ -130,8 +130,8 @@ class NamedHTTPError(BaseHTTPError, Generic[WrapperErrorT, BaseModelT]):
         return {cls.status: {"model": cls.response_class()}}
 
 
-def named_http_error_handler(_, exc: NamedHTTPError):
-    headers = exc.headers
+def ext_http_error_handler(_, exc: BaseHTTPError):
+    headers = getattr(exc, "headers", None)
 
     if not is_body_allowed_for_status_code(exc.status):
         return Response(status_code=exc.status, headers=headers)

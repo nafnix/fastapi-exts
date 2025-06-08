@@ -5,6 +5,8 @@ from pydantic import BaseModel
 
 class BaseHTTPError(Exception, ABC):
     status: int
+    data: BaseModel
+    headers: dict[str, str] | None
 
     @classmethod
     @abstractmethod
