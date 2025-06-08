@@ -1,7 +1,6 @@
 import inspect
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Coroutine
 from copy import copy
-from types import CoroutineType
 from typing import Any, Generic, TypeVar, cast, overload
 
 from fastapi import params
@@ -32,7 +31,7 @@ class Provider(Generic[T]):
 
 
     @app.get("/")
-    @parse_providers
+    @transform_providers
     def a(number=Provider(lambda: 1)):
         return number.value  # -> 1
     ```
@@ -66,7 +65,7 @@ class Provider(Generic[T]):
     @overload
     def __init__(
         self,
-        dependency: Callable[..., CoroutineType[Any, Any, T]],
+        dependency: Callable[..., Coroutine[Any, Any, T]],
         *,
         use_cache: bool = True,
         exceptions: list[type[BaseHTTPError]] | None = None,
@@ -94,7 +93,7 @@ class Provider(Generic[T]):
         self,
         dependency: Callable[..., T]
         | Callable[..., Awaitable[T]]
-        | Callable[..., CoroutineType[Any, Any, T]],
+        | Callable[..., Coroutine[Any, Any, T]],
         *,
         use_cache: bool = True,
         exceptions: list[type[BaseHTTPError]] | None = None,

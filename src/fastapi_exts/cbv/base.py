@@ -6,18 +6,12 @@ from typing import Annotated, TypeVar
 from fastapi import APIRouter, FastAPI, params
 from fastapi.routing import APIRoute, APIWebSocketRoute
 
-from fastapi_exts._utils import (
-    Is,
-    add_parameter,
-    list_parameters,
-    new_function,
-    update_signature,
-)
+from fastapi_exts._utils import Is, list_parameters, new_function
+from fastapi_exts.cbv._utils import iter_class_dependency
 from fastapi_exts.provider import Provider
 from fastapi_exts.responses import Response, build_responses
 from fastapi_exts.routing import ExtAPIRouter, analyze_and_update
-
-from ._utils import iter_class_dependency
+from fastapi_exts.utils import inject_parameter, update_signature
 
 
 T = TypeVar("T")
@@ -131,39 +125,48 @@ class CBV:
         class_dependencies: Callable,
     ):
         """创建实例函数"""
-
         cls_dep_name = class_dependencies.__name__
+
+        def _flush_arguments(_args: tuple, kwds: dict):
+            kwds.pop("self", None)
+
+        def _create_instance(_args: tuple, kwds: dict):
+            dependencies = kwds.pop(cls_dep_name)
+            return self._create_class_instance(cls=cls, **dependencies)
+
+        fn = new_function(origin)
 
         # 把 self 转为类型为空依赖的参数
         # e.g.: (self: Annotated[None, Depends(lambda: None)], ...)
         no_self_arguments = list_parameters(origin)
         no_self_arguments[0] = no_self_arguments[0].replace(
-            annotation=Annotated[None, params.Depends(self._empty_dependency)],
+            annotation=Annotated[
+                None,
+                params.Depends(self._empty_dependency),
+            ],
         )
-        parameters = add_parameter(
-            no_self_arguments,
+        update_signature(fn, parameters=no_self_arguments)
+
+        inject_parameter(
+            fn,
             name=cls_dep_name,
             default=params.Depends(class_dependencies),
         )
 
-        # 创建一个新函数, 并且带有类依赖的函数
-        fn = new_function(origin, parameters=parameters)
         if Is.coroutine_function(origin):
 
             @wraps(fn)
             async def async_wrapper(*args, **kwds):
-                kwds.pop("self", None)
-                dependencies = kwds.pop(cls_dep_name)
-                instance = self._create_class_instance(cls=cls, **dependencies)
+                _flush_arguments(args, kwds)
+                instance = _create_instance(args, kwds)
                 return await origin(instance, *args, **kwds)
 
             return async_wrapper
 
         @wraps(fn)
         def wrapper(*args, **kwds):
-            kwds.pop("self", None)
-            dependencies = kwds.pop(cls_dep_name)
-            instance = self._create_class_instance(cls=cls, **dependencies)
+            _flush_arguments(args, kwds)
+            instance = _create_instance(args, kwds)
             return origin(instance, *args, **kwds)
 
         return wrapper

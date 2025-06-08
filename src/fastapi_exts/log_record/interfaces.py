@@ -23,27 +23,32 @@ from fastapi_exts._utils import (
     get_annotated_type,
     list_parameters,
     new_function,
-    update_signature,
-    with_parameter,
 )
-
-from ._types import ContextT, EndpointT, ExceptionT, MessageTemplate, P, T
-from .context import (
+from fastapi_exts.log_record._types import (
+    ContextT,
+    EndpointT,
+    ExceptionT,
+    MessageTemplate,
+    P,
+    T,
+)
+from fastapi_exts.log_record.context import (
     AnyLogRecordContextT,
     LogRecordContextT,
 )
-from .models import (
+from fastapi_exts.log_record.models import (
     LogRecordFailureDetail,
     LogRecordFailureSummary,
     LogRecordSuccessDetail,
     LogRecordSuccessSummary,
 )
-from .utils import (
+from fastapi_exts.log_record.utils import (
     async_execute,
     is_failure,
     is_success,
     sync_execute,
 )
+from fastapi_exts.utils import inject_parameter, update_signature
 
 
 SuccessDetailT = TypeVar("SuccessDetailT", bound=LogRecordSuccessDetail)
@@ -139,7 +144,6 @@ class _AbstractLogRecord(
         self.dependencies: dict[str, Depends] = {}
 
         self.context = context
-        self._contexts = {}
 
         self.functions: dict[str, _UtilFunctionT] = {}
 
@@ -149,8 +153,6 @@ class _AbstractLogRecord(
 
         # 用于判断当前装饰的是哪个端点
         self._endpoints: set[EndpointT] = set()
-
-        # self._ignore_first =
 
         if dependencies:
             if isinstance(dependencies, dict):
@@ -211,7 +213,7 @@ class _AbstractLogRecord(
         fn: Callable,
         endpoint: EndpointT,
         event: _LifecycleEvent | None,
-    ) -> Callable: ...  # noqa: RUF100
+    ) -> Callable: ...
 
     def _log_record_deps(self, endpoint: EndpointT):
         """创建日志所需依赖
@@ -250,14 +252,14 @@ class _AbstractLogRecord(
         log_record_deps = self._log_record_deps(endpoint)
 
         if callable(log_record_deps):
-            new = new_function(call)
-            parameters, *_ = with_parameter(
-                new,
+            new_fn = new_function(call)
+            inject_parameter(
+                new_fn,
                 name=self._log_record_deps_name,
                 default=Depends(log_record_deps, use_cache=True),
             )
-            update_signature(new, parameters=parameters)
-            return new
+
+            return new_fn
         return call
 
     def _new_parameters(self, endpoint: EndpointT) -> list[inspect.Parameter]:
