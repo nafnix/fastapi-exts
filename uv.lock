@@ -202,7 +202,7 @@ wheels = [
 
 [[package]]
 name = "fastapi-exts"
-version = "0.0.14"
+version = "0.0.21"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
