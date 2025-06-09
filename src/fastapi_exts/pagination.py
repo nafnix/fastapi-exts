@@ -5,6 +5,8 @@ from typing import Annotated, Generic, NamedTuple, TypeVar, overload
 from fastapi import Depends, Query
 from pydantic import BaseModel, Field, NonNegativeInt, PositiveInt
 
+from fastapi_exts.models import APIModel
+
 
 BaseModelT = TypeVar("BaseModelT", bound=BaseModel)
 
@@ -71,6 +73,58 @@ def page(
 ) -> Page[BaseModelT]:
     results_ = [model_class.model_validate(i) for i in results]
     return Page[BaseModelT](
+        page_size=pagination.page_size,
+        page_no=pagination.page_no,
+        page_count=ceil(count / pagination.page_size),
+        count=count,
+        results=results_,
+    )
+
+
+class APIPage(Page[BaseModelT], APIModel, Generic[BaseModelT]): ...
+
+
+class APIPageParamsModel(PageParamsModel, APIModel): ...
+
+
+APIPageParams = Annotated[APIPageParamsModel, Depends()]
+
+
+@overload
+def api_page(
+    model_class: type[BaseModelT],
+    pagination: PageParamsModel,
+    count: int,
+    results: Sequence[Mapping] | APIPageParamsModel,
+) -> APIPage[BaseModelT]: ...
+
+
+@overload
+def api_page(
+    model_class: type[BaseModelT],
+    pagination: PageParamsModel | APIPageParamsModel,
+    count: int,
+    results: Sequence[NamedTuple],
+) -> APIPage[BaseModelT]: ...
+
+
+@overload
+def api_page(
+    model_class: type[BaseModelT],
+    pagination: PageParamsModel | APIPageParamsModel,
+    count: int,
+    results,
+) -> APIPage[BaseModelT]: ...
+
+
+def api_page(
+    model_class: type[BaseModelT],
+    pagination: PageParamsModel | APIPageParamsModel,
+    count: int,
+    results,
+) -> APIPage[BaseModelT]:
+    results_ = [model_class.model_validate(i) for i in results]
+    return APIPage[BaseModelT](
         page_size=pagination.page_size,
         page_no=pagination.page_no,
         page_count=ceil(count / pagination.page_size),

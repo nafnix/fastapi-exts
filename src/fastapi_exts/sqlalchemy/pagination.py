@@ -1,9 +1,16 @@
-from math import ceil
 from typing import overload
 
 from sqlalchemy import MappingResult, ScalarResult
 
-from fastapi_exts.pagination import BaseModelT, Page, PageParamsModel
+from fastapi_exts.pagination import (
+    APIPage,
+    APIPageParamsModel,
+    BaseModelT,
+    Page,
+    PageParamsModel,
+)
+from fastapi_exts.pagination import api_page as _api_page
+from fastapi_exts.pagination import page as _page
 
 
 @overload
@@ -24,17 +31,27 @@ def page(
 ) -> Page[BaseModelT]: ...
 
 
-def page(
+def page(*args, **kwds):
+    return _page(*args, *kwds)
+
+
+@overload
+def api_page(
     model_class: type[BaseModelT],
-    pagination: PageParamsModel,
+    pagination: PageParamsModel | APIPageParamsModel,
     count: int,
-    results,
-) -> Page[BaseModelT]:
-    results_ = [model_class.model_validate(i) for i in results]
-    return Page[BaseModelT](
-        page_size=pagination.page_size,
-        page_no=pagination.page_no,
-        page_count=ceil(count / pagination.page_size),
-        count=count,
-        results=results_,
-    )
+    results: ScalarResult,
+) -> APIPage[BaseModelT]: ...
+
+
+@overload
+def api_page(
+    model_class: type[BaseModelT],
+    pagination: PageParamsModel | APIPageParamsModel,
+    count: int,
+    results: MappingResult,
+) -> APIPage[BaseModelT]: ...
+
+
+def api_page(*args, **kwds):
+    return _api_page(*args, *kwds)
