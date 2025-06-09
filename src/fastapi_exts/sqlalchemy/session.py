@@ -49,7 +49,7 @@ def create_session_dependency(
 def create_session_dependency(
     sessionmaker: sessionmaker | asa.async_sessionmaker,
 ):
-    if isinstance(sessionmaker, asa.AsyncEngine):
+    if isinstance(sessionmaker, asa.async_sessionmaker):
 
         async def get_async_session() -> AsyncGenerator[
             asa.AsyncSession, None
