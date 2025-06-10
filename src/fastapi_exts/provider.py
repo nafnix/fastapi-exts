@@ -99,24 +99,19 @@ class Provider(Generic[T]):
         exceptions: list[type[BaseHTTPError]] | None = None,
     ) -> None:
         self.dependency = dependency
-        self.use_cache = use_cache
+        self.depends = params.Depends(dependency, use_cache=use_cache)
         self.exceptions: list[type[BaseHTTPError]] = exceptions or []
         self.value: T = cast(T, _Undefined)
 
 
-def _create_provider_dependency(provider: Provider):
+def create_provider_dependency(provider: Provider):
     def dependency(value=None):
         provider.value = value
         return provider
 
     parameters = list(inspect.signature(dependency).parameters.values())
 
-    parameters[0] = parameters[0].replace(
-        default=params.Depends(
-            provider.dependency,
-            use_cache=provider.use_cache,
-        )
-    )
+    parameters[0] = parameters[0].replace(default=provider.depends)
 
     update_signature(dependency, parameters=parameters)
     return dependency
@@ -139,11 +134,11 @@ def transform_providers(fn: Callable):
     for name, param in signature_params.items():
         provider = _analyze_provider(value=param.default)
         if provider is not None:
-            dependency = _create_provider_dependency(provider)
+            dependency = create_provider_dependency(provider)
             signature_params[name] = signature_params[name].replace(
                 default=params.Depends(
                     dependency,
-                    use_cache=provider.use_cache,
+                    use_cache=provider.depends.use_cache,
                 )
             )
 

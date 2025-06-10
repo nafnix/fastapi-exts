@@ -1,4 +1,3 @@
-import inspect
 from collections.abc import Callable
 from copy import copy
 from typing import Annotated, Any, NamedTuple, get_args, get_origin
@@ -7,31 +6,13 @@ from fastapi import params
 from fastapi.dependencies.utils import get_typed_signature
 
 from fastapi_exts.interfaces import BaseHTTPError
-from fastapi_exts.provider import Provider
+from fastapi_exts.provider import Provider, create_provider_dependency
 from fastapi_exts.utils import update_signature
 
 
 class ParamExtra(NamedTuple):
     exceptions: list[type[BaseHTTPError]]
     provider: Provider | None
-
-
-def _create_provider_dependency(provider: Provider):
-    def dependency(value=None):
-        provider.value = value
-        return provider
-
-    parameters = list(inspect.signature(dependency).parameters.values())
-
-    parameters[0] = parameters[0].replace(
-        default=params.Depends(
-            provider.dependency,
-            use_cache=provider.use_cache,
-        )
-    )
-
-    update_signature(dependency, parameters=parameters)
-    return dependency
 
 
 def analyze_param(*, annotation: Any, value: Any) -> ParamExtra:
@@ -68,11 +49,11 @@ def analyze_and_update(fn: Callable[..., Any]) -> list[ParamExtra]:
         )
         result.append(extra)
         if extra.provider is not None:
-            dependency = _create_provider_dependency(extra.provider)
+            dependency = create_provider_dependency(extra.provider)
             signature_params[name] = signature_params[name].replace(
                 default=params.Depends(
                     dependency,
-                    use_cache=extra.provider.use_cache,
+                    use_cache=extra.provider.depends.use_cache,
                 )
             )
 
