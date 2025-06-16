@@ -1,5 +1,5 @@
 import inspect
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Generic, Literal, TypeVar, cast
 
 from fastapi import status
@@ -42,6 +42,15 @@ class NamedHTTPError(BaseHTTPError, Generic[WrapperErrorT, BaseModelT]):
         | None
     ) = None
 
+    __create_model_name__: str | None = None
+
+    __create_model_kwargs__: Mapping | None = None
+    """
+    see:
+    - https://docs.pydantic.dev/latest/api/base_model/#pydantic.create_model
+    - https://docs.pydantic.dev/latest/concepts/models/#dynamic-model-creation
+    """
+
     @classmethod
     def error_name(cls):
         return cls.__name__.removesuffix("Error")
@@ -57,7 +66,14 @@ class NamedHTTPError(BaseHTTPError, Generic[WrapperErrorT, BaseModelT]):
         if cls.targets:
             kwargs["target"] = (Literal[*cls.transformed_targets()], ...)
 
-        return cast(type[BaseModelT], create_model(f"{type_}Model", **kwargs))
+        return cast(
+            type[BaseModelT],
+            create_model(
+                cls.__create_model_name__ or "{type_}Model",
+                **(cls.__create_model_kwargs__ or {}),
+                **kwargs,
+            ),
+        )
 
     @classmethod
     def error_code(cls):
