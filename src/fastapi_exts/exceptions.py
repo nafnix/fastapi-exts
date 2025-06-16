@@ -66,12 +66,12 @@ class NamedHTTPError(BaseHTTPError, Generic[WrapperErrorT, BaseModelT]):
         if cls.targets:
             kwargs["target"] = (Literal[*cls.transformed_targets()], ...)
 
+        kwargs.update(cls.__create_model_kwargs__ or {})
+
         return cast(
             type[BaseModelT],
             create_model(
-                cls.__create_model_name__ or "{type_}Model",
-                **(cls.__create_model_kwargs__ or {}),
-                **kwargs,
+                cls.__create_model_name__ or f"{type_}Model", **kwargs
             ),
         )
 
