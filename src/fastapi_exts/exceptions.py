@@ -115,6 +115,7 @@ class NamedHTTPError(BaseHTTPError, Generic[WrapperErrorT, BaseModelT]):
             create = self.wrapper.create
         elif isinstance(self.wrapper, tuple):
             create = self.wrapper[1]
+
         self.data: BaseModel = (
             create(self.model) if create is not None else self.model
         )
@@ -122,10 +123,10 @@ class NamedHTTPError(BaseHTTPError, Generic[WrapperErrorT, BaseModelT]):
         self.headers = headers
 
     def __str__(self) -> str:
-        return f"{self.status}: {self.data.error.code}"  # type: ignore
+        return f"<{self.__class__.__name__}: {self.status}>"
 
     def __repr__(self) -> str:
-        return f"{self.model_class: str(self.error)}"
+        return f"<{self.model_class: str(self.error)}>"
 
     @classmethod
     def response_class(cls):
