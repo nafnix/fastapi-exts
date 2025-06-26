@@ -1,23 +1,11 @@
 import ast
 import inspect
-from collections.abc import Callable, Generator
-from functools import partial
+from collections.abc import Generator
 from typing import Annotated, TypeGuard, get_args, get_origin
 
 from fastapi import params
 
 from fastapi_exts.provider import Provider
-
-
-def iter_class_functions(
-    cls: type,
-) -> Generator[tuple[str, Callable], None, None]:
-    """迭代类的函数, 并且能够提取父类的函数"""
-
-    yield from inspect.getmembers_static(
-        cls,
-        lambda obj: (inspect.isfunction(obj) or inspect.ismethod(obj)),
-    )
 
 
 def get_dependency_from_annotated(
@@ -125,20 +113,3 @@ def iter_class_dependency(
                 if token in dependencies:
                     dep, typ = dependencies[token]
                     yield token, dep, typ
-
-
-class ClassFunctionDecorator:
-    # 装饰时执行
-    def __init__(self, fn) -> None:
-        self.fn = fn
-
-    # cls 执行 __new__ 时执行
-    def __set_name__(self, cls: type, name: str): ...
-
-    # 调用时执行
-    def __get__(self, instance, cls):
-        if isinstance(self.fn, staticmethod):
-            return self.fn
-        if isinstance(self.fn, classmethod):
-            return partial(self.fn.__func__, cls)
-        return partial(self.fn, instance)
