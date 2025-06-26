@@ -1,4 +1,5 @@
 import inspect
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Generic, Literal, TypeVar, cast
 
@@ -7,13 +8,23 @@ from fastapi.responses import JSONResponse, ORJSONResponse, Response
 from fastapi.utils import is_body_allowed_for_status_code
 from pydantic import BaseModel, create_model
 
-from fastapi_exts.interfaces import BaseHTTPError
-
 
 try:
     import orjson  # type: ignore
 except ImportError:  # pragma: nocover
     orjson = None  # type: ignore
+
+
+class BaseHTTPError(Exception, ABC):
+    status: int
+    data: BaseModel
+    headers: dict[str, str] | None
+
+    @classmethod
+    @abstractmethod
+    def response_class(cls) -> type[BaseModel]:
+        raise NotImplementedError
+
 
 BaseModelT = TypeVar("BaseModelT", bound=BaseModel)
 
@@ -36,12 +47,12 @@ class NamedHTTPError(BaseHTTPError, Generic[WrapperErrorT, BaseModelT]):
     targets: Sequence[Any] | None = None
     target_transform: Callable[[Any], Any] | None = None
     message: str | None = None
-    wrapper: (
+
+    __wrapper__: (
         type[WrapperError[BaseModelT]]
         | tuple[WrapperErrorT, Callable[[BaseModelT], WrapperErrorT]]
         | None
     ) = None
-
     __create_model_name__: str | None = None
 
     __create_model_kwargs__: Mapping | None = None
@@ -111,10 +122,10 @@ class NamedHTTPError(BaseHTTPError, Generic[WrapperErrorT, BaseModelT]):
 
         self.model = self.model_class()(**kwargs)
         create: Callable[[BaseModelT], BaseModel] | None = None
-        if inspect.isclass(self.wrapper):
-            create = self.wrapper.create
-        elif isinstance(self.wrapper, tuple):
-            create = self.wrapper[1]
+        if inspect.isclass(self.__wrapper__):
+            create = self.__wrapper__.create
+        elif isinstance(self.__wrapper__, tuple):
+            create = self.__wrapper__[1]
 
         self.data: BaseModel = (
             create(self.model) if create is not None else self.model
@@ -132,12 +143,12 @@ class NamedHTTPError(BaseHTTPError, Generic[WrapperErrorT, BaseModelT]):
     def response_class(cls):
         model = cls.model_class()
 
-        if cls.wrapper:
+        if cls.__wrapper__:
             wrapper: Any
-            if inspect.isclass(cls.wrapper):
-                wrapper = cls.wrapper
+            if inspect.isclass(cls.__wrapper__):
+                wrapper = cls.__wrapper__
             else:
-                wrapper = cls.wrapper[0]
+                wrapper = cls.__wrapper__[0]
             return wrapper[model]
 
         return model
