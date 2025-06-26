@@ -55,7 +55,16 @@ class CBV:
 
     @property
     def ws(self):
+        "websocket alias"
         return self._router.websocket
+
+    @property
+    def options(self):
+        return self._router.options
+
+    @property
+    def head(self):
+        return self._router.head
 
     def route_handle(
         self,
