@@ -11,12 +11,12 @@ from typing import TypeVar
 from fastapi import FastAPI
 
 
-Hook = Callable[
+Handler = Callable[
     [FastAPI],
     Awaitable[None] | Coroutine[None, None, None] | None,
 ]
 
-HookT = TypeVar("HookT", bound=Hook)
+HandlerT = TypeVar("HandlerT", bound=Handler)
 
 ContextManager = Callable[
     [FastAPI],
@@ -28,15 +28,15 @@ ContextManagerT = TypeVar("ContextManagerT", bound=ContextManager)
 
 class Lifespan:
     def __init__(self) -> None:
-        self.startup_handlers: list[Hook] = []
-        self.shutdown_handlers: list[Hook] = []
+        self.startup_handlers: list[Handler] = []
+        self.shutdown_handlers: list[Handler] = []
         self.context_managers: list[ContextManager] = []
 
-    def on_startup(self, fn: HookT) -> HookT:
+    def on_startup(self, fn: HandlerT) -> HandlerT:
         self.startup_handlers.append(fn)
         return fn
 
-    def on_shutdown(self, fn: HookT) -> HookT:
+    def on_shutdown(self, fn: HandlerT) -> HandlerT:
         self.shutdown_handlers.append(fn)
         return fn
 

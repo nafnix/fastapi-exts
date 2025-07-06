@@ -5,7 +5,7 @@ from typing import Annotated, Any, NamedTuple, get_args, get_origin
 from fastapi import params
 from fastapi.dependencies.utils import get_typed_signature
 
-from fastapi_exts.interfaces import BaseHTTPError
+from fastapi_exts.exceptions import BaseHTTPError
 from fastapi_exts.provider import Provider, create_provider_dependency
 from fastapi_exts.utils import update_signature
 

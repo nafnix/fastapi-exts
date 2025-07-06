@@ -1,13 +1,12 @@
-import inspect
-from collections.abc import Awaitable, Callable, Coroutine
+from collections.abc import Awaitable, Callable, Coroutine, Sequence
 from copy import copy
 from typing import Any, Generic, TypeVar, cast, overload
 
 from fastapi import params
 from fastapi.dependencies.utils import get_typed_signature
 
-from fastapi_exts.interfaces import BaseHTTPError
-from fastapi_exts.utils import update_signature
+from fastapi_exts.interfaces import HTTPErrorInterface
+from fastapi_exts.utils import list_parameters, update_signature
 
 
 class _Undefined: ...
@@ -36,7 +35,7 @@ class Provider(Generic[T]):
         return number.value  # -> 1
     ```
 
-    类似实现:
+    等价实现:
 
     ```python
     from fastapi import FastAPI, Depends
@@ -62,13 +61,24 @@ class Provider(Generic[T]):
     ```
     """
 
+    value: T = cast(T, _Undefined)
+
+    @overload
+    def __init__(
+        self,
+        dependency: type[T],
+        *,
+        use_cache: bool = True,
+        exceptions: list[type[HTTPErrorInterface]] | None = None,
+    ) -> None: ...
+
     @overload
     def __init__(
         self,
         dependency: Callable[..., Coroutine[Any, Any, T]],
         *,
         use_cache: bool = True,
-        exceptions: list[type[BaseHTTPError]] | None = None,
+        exceptions: list[type[HTTPErrorInterface]] | None = None,
     ) -> None: ...
 
     @overload
@@ -77,7 +87,7 @@ class Provider(Generic[T]):
         dependency: Callable[..., Awaitable[T]],
         *,
         use_cache: bool = True,
-        exceptions: list[type[BaseHTTPError]] | None = None,
+        exceptions: list[type[HTTPErrorInterface]] | None = None,
     ) -> None: ...
 
     @overload
@@ -86,22 +96,30 @@ class Provider(Generic[T]):
         dependency: Callable[..., T],
         *,
         use_cache: bool = True,
-        exceptions: list[type[BaseHTTPError]] | None = None,
+        exceptions: list[type[HTTPErrorInterface]] | None = None,
     ) -> None: ...
 
     def __init__(
         self,
-        dependency: Callable[..., T]
+        dependency: type[T]
+        | Callable[..., T]
         | Callable[..., Awaitable[T]]
         | Callable[..., Coroutine[Any, Any, T]],
         *,
         use_cache: bool = True,
-        exceptions: list[type[BaseHTTPError]] | None = None,
+        scopes: Sequence[str] | None = None,
+        exceptions: list[type[HTTPErrorInterface]] | None = None,
     ) -> None:
         self.dependency = dependency
-        self.depends = params.Depends(dependency, use_cache=use_cache)
-        self.exceptions: list[type[BaseHTTPError]] = exceptions or []
-        self.value: T = cast(T, _Undefined)
+
+        if scopes is not None:
+            self.depends = params.Security(
+                dependency, use_cache=use_cache, scopes=scopes
+            )
+        else:
+            self.depends = params.Depends(dependency, use_cache=use_cache)
+
+        self.exceptions: list[type[HTTPErrorInterface]] = exceptions or []
 
 
 def create_provider_dependency(provider: Provider):
@@ -109,7 +127,7 @@ def create_provider_dependency(provider: Provider):
         provider.value = value
         return provider
 
-    parameters = list(inspect.signature(dependency).parameters.values())
+    parameters = list_parameters(dependency)
 
     parameters[0] = parameters[0].replace(default=provider.depends)
 

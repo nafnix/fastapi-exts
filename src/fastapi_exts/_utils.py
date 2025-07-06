@@ -8,6 +8,7 @@ from collections.abc import (
     Sequence,
 )
 from contextlib import AbstractAsyncContextManager, AbstractContextManager
+from datetime import UTC, datetime
 from functools import partial, update_wrapper
 from typing import (
     Annotated,
@@ -53,11 +54,6 @@ class Is:
     @staticmethod
     def context(value) -> TypeGuard[AbstractContextManager]:
         return hasattr(value, "__enter__") and hasattr(value, "__exit__")
-
-
-def list_parameters(fn: Callable, /) -> list[inspect.Parameter]:
-    signature = inspect.signature(fn)
-    return list(signature.parameters.values())
 
 
 def update_signature(
@@ -185,3 +181,13 @@ def merge(target, source):
         # 否则使用有效的值
         else:
             target[ok] = v or ov
+
+
+def naive_datetime(dt: datetime):
+    return dt.replace(tzinfo=None)
+
+
+def utc_datetime(dt: datetime):
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)

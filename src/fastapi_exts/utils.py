@@ -5,6 +5,11 @@ from typing import Any
 from fastapi_exts._utils import _undefined
 
 
+def list_parameters(fn: Callable, /) -> list[inspect.Parameter]:
+    signature = inspect.signature(fn)
+    return list(signature.parameters.values())
+
+
 def update_signature(
     fn: Callable,
     *,

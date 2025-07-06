@@ -11,7 +11,7 @@ def _transform(value):
     return _replace_pattern.sub("", value)
 
 
-class URLPath(str):
+class Path(str):
     __slots__ = ()
 
     @staticmethod
@@ -40,4 +40,8 @@ class URLPath(str):
 
         path = "/".join([_transform(arg) for arg in args])
 
-        return URLPath(path)
+        return Path(path)
+
+
+def path(path: str):
+    return Path(path)

@@ -6,12 +6,16 @@ from typing import Annotated, TypeVar
 from fastapi import APIRouter, FastAPI, params
 from fastapi.routing import APIRoute, APIWebSocketRoute
 
-from fastapi_exts._utils import Is, list_parameters, new_function
+from fastapi_exts._utils import Is, new_function
 from fastapi_exts.cbv._utils import iter_class_dependency
 from fastapi_exts.provider import Provider
 from fastapi_exts.responses import Response, build_responses
 from fastapi_exts.routing import ExtAPIRouter, analyze_and_update
-from fastapi_exts.utils import inject_parameter, update_signature
+from fastapi_exts.utils import (
+    inject_parameter,
+    list_parameters,
+    update_signature,
+)
 
 
 T = TypeVar("T")

@@ -1,7 +1,11 @@
+from typing import cast
+
 from pydantic import BaseModel
 
-from fastapi_exts._utils import merge
-from fastapi_exts.interfaces import BaseHTTPError
+from fastapi_exts.interfaces import (
+    HTTPErrorInterface,
+    HTTPSchemaErrorInterface,
+)
 
 
 def _merge_responses(
@@ -20,26 +24,38 @@ def _merge_responses(
             target[status] = response
 
 
-def error_responses(*errors: type[BaseHTTPError]):
-    source = {}
+def error_responses(
+    *errors: type[HTTPErrorInterface | HTTPSchemaErrorInterface[BaseModel]],
+):
+    result: dict[int, None | dict] = {}
 
     for e in errors:
-        model_class = e.response_class()
-        if e.status in source:
-            current: type[BaseModel] = source[e.status]["model"]
-
-            source[e.status] = {"model": current | model_class}
+        if hasattr(e, "build_schema"):
+            e = cast(type[HTTPSchemaErrorInterface[BaseModel]], e)
+            schema = e.build_schema()
+            current: None | dict
+            if (current := result.get(e.status)) and current.get("model"):
+                current["model"] = current["model"] | schema
+            elif result[e.status] is None:
+                result[e.status] = {"model": schema}
+            else:
+                cast(dict, result[e.status]).update({"model": schema})
         else:
-            merge(source, {e.status: {"model": model_class}})
-    return source
+            result[e.status] = None
+
+    return result
 
 
-Response = tuple[int, type[BaseModel]] | int | type[BaseHTTPError]
+Response = (
+    tuple[int, type[BaseModel]]
+    | int
+    | type[HTTPErrorInterface | HTTPSchemaErrorInterface]
+)
 
 
 def build_responses(*responses: Response):
     result = {}
-    errors: list[type[BaseHTTPError]] = []
+    errors: list[type[HTTPErrorInterface]] = []
 
     for arg in responses:
         status = None
