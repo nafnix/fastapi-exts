@@ -36,7 +36,7 @@ def error_responses(
             current: None | dict
             if (current := result.get(e.status)) and current.get("model"):
                 current["model"] = current["model"] | schema
-            elif result[e.status] is None:
+            elif result.get(e.status) is None:
                 result[e.status] = {"model": schema}
             else:
                 cast(dict, result[e.status]).update({"model": schema})
