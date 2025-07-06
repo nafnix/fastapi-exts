@@ -28,31 +28,36 @@ ContextManagerT = TypeVar("ContextManagerT", bound=ContextManager)
 
 class Lifespan:
     def __init__(self) -> None:
-        self._startup_hooks: list[Hook] = []
-        self._shutdown_hooks: list[Hook] = []
-        self._context_managers: list[ContextManager] = []
+        self.startup_handlers: list[Hook] = []
+        self.shutdown_handlers: list[Hook] = []
+        self.context_managers: list[ContextManager] = []
 
     def on_startup(self, fn: HookT) -> HookT:
-        self._startup_hooks.append(fn)
+        self.startup_handlers.append(fn)
         return fn
 
     def on_shutdown(self, fn: HookT) -> HookT:
-        self._shutdown_hooks.append(fn)
+        self.shutdown_handlers.append(fn)
         return fn
 
     def on_context(self, fn: ContextManagerT) -> ContextManagerT:
-        self._context_managers.append(fn)
+        self.context_managers.append(fn)
         return fn
+
+    def include(self, lifespan: "Lifespan"):
+        self.startup_handlers.extend(lifespan.startup_handlers)
+        self.shutdown_handlers.extend(lifespan.shutdown_handlers)
+        self.context_managers.extend(lifespan.context_managers)
 
     @asynccontextmanager
     async def __call__(self, _app: FastAPI):
-        for hook in self._startup_hooks:
+        for hook in self.startup_handlers:
             ret = hook(_app)
             if asyncio.iscoroutine(ret):
                 await ret
 
         async with AsyncExitStack() as stack:
-            for ctx in self._context_managers:
+            for ctx in self.context_managers:
                 i = ctx(_app)
                 if isinstance(i, AbstractContextManager):
                     stack.enter_context(i)
@@ -61,7 +66,7 @@ class Lifespan:
 
             yield
 
-        for hook in self._shutdown_hooks:
+        for hook in self.shutdown_handlers:
             ret = hook(_app)
             if asyncio.iscoroutine(ret):
                 await ret
