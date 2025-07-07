@@ -1,3 +1,4 @@
+import inspect
 from collections.abc import Callable
 from copy import copy
 from typing import Annotated, Any, NamedTuple, get_args, get_origin
@@ -25,7 +26,7 @@ def analyze_param(*, annotation: Any, value: Any) -> ParamExtra:
         exceptions = [
             arg
             for arg in annotated_args[1:]
-            if type(arg) is type and issubclass(arg, BaseHTTPError)
+            if inspect.isclass(arg) is type and issubclass(arg, BaseHTTPError)
         ]
 
     provider = None
