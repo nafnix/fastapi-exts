@@ -132,6 +132,7 @@ class HTTPProblem(BaseHTTPDataError):  # noqa: N818
         *,
         detail: str | None = None,
         instance: str | None = None,
+        headers: dict | None = None,
     ) -> None:
         self.detail = detail
         self.instance = instance
@@ -147,6 +148,7 @@ class HTTPProblem(BaseHTTPDataError):  # noqa: N818
             kwds["instance"] = self.instance
 
         self.data = self.build_schema().model_validate(kwds)
+        self.headers = headers or self.headers
 
     @classmethod
     def build_schema(cls):
@@ -180,7 +182,7 @@ class HTTPProblem(BaseHTTPDataError):  # noqa: N818
 
 
 def ext_http_error_handler(_, exc: BaseHTTPError):
-    headers = exc.headers
+    headers = getattr(exc, "headers", None)
 
     if not is_body_allowed_for_status_code(exc.status):
         return Response(status_code=exc.status, headers=headers)
