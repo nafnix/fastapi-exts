@@ -1,15 +1,13 @@
 from collections.abc import Awaitable, Callable, Coroutine, Sequence
 from copy import copy
-from typing import Any, Generic, TypeVar, cast, overload
+from typing import Any, Generic, TypeVar, overload
 
 from fastapi import params
 from fastapi.dependencies.utils import get_typed_signature
 
+from fastapi_exts._utils import _undefined
 from fastapi_exts.interfaces import HTTPErrorInterface
 from fastapi_exts.utils import list_parameters, update_signature
-
-
-class _Undefined: ...
 
 
 T = TypeVar("T")
@@ -61,7 +59,7 @@ class Provider(Generic[T]):
     ```
     """
 
-    value: T = cast(T, _Undefined)
+    value: T = _undefined
 
     @overload
     def __init__(
