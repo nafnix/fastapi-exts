@@ -3,9 +3,21 @@ from collections.abc import Iterable, Mapping
 from typing import Any, Generic, Literal, cast
 
 from fastapi import status
-from fastapi.responses import JSONResponse, ORJSONResponse, Response
+from fastapi.responses import Response
 from fastapi.utils import is_body_allowed_for_status_code
-from pydantic import BaseModel, create_model
+from pydantic import BaseModel, Field, create_model
+
+
+try:
+    import orjson
+except ImportError:
+    orjson = None
+
+if orjson is None:
+    from fastapi.responses import JSONResponse
+else:
+    from fastapi.responses import ORJSONResponse as JSONResponse
+
 
 from .interfaces import (
     BaseModelT_co,
@@ -102,6 +114,71 @@ class NamedHTTPError(
         return f"<{self.__class__.__name__: str(self.data)}>"
 
 
+class HTTPProblem(BaseHTTPDataError):  # noqa: N818
+    type: str | None = None
+
+    title: str
+
+    __schema_name__: str | None = None
+    __build_schema_kwargs__: Mapping | None = None
+    """
+    see:
+    - https://docs.pydantic.dev/latest/api/base_model/#pydantic.create_model
+    - https://docs.pydantic.dev/latest/concepts/models/#dynamic-model-creation
+    """
+
+    def __init__(
+        self,
+        *,
+        detail: str | None = None,
+        instance: str | None = None,
+    ) -> None:
+        self.detail = detail
+        self.instance = instance
+        kwds = {
+            "title": self.title,
+            "status": self.status,
+        }
+        if self.type:
+            kwds["type"] = self.type
+        if self.detail:
+            kwds["detail"] = self.detail
+        if self.instance:
+            kwds["instance"] = self.instance
+
+        self.data = self.build_schema().model_validate(kwds)
+
+    @classmethod
+    def build_schema(cls):
+        type_ = cls.type
+        status = cls.status
+
+        kwargs: dict = {
+            "type": (
+                str,
+                Field(None, json_schema_extra={"format": "uri"}),
+            ),
+            "title": (Literal[cls.title], ...),
+            "status": (Literal[status], ...),
+            "detail": (str, None),
+            "instance": (
+                str,
+                Field(None, json_schema_extra={"format": "uri"}),
+            ),
+        }
+
+        if type_ is not None:
+            kwargs["type"] = (
+                Literal[type_],
+                Field(json_schema_extra={"format": "uri"}),
+            )
+
+        kwargs.update(cls.__build_schema_kwargs__ or {})
+
+        name = cls.__name__
+        return create_model(cls.__schema_name__ or name, **kwargs)
+
+
 def ext_http_error_handler(_, exc: BaseHTTPError):
     headers = exc.headers
 
@@ -113,15 +190,13 @@ def ext_http_error_handler(_, exc: BaseHTTPError):
     else:
         content = exc.data
 
-    if orjson:
-        return ORJSONResponse(
-            content,
-            status_code=exc.status,
-            headers=headers,
-        )
+    media_type = None
+    if isinstance(exc, HTTPProblem):
+        media_type = "application/problem+json"
 
     return JSONResponse(
         content,
         status_code=exc.status,
         headers=headers,
+        media_type=media_type,
     )
