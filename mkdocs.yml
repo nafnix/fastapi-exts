@@ -1,0 +1,37 @@
+site_name: FastAPI Exts
+
+theme:
+  name: "material"
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+      primary: black
+      accent: amber
+
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+      primary: black
+      accent: amber
+  # logo: "img/icon-white.svg"
+  # favicon: "img/favicon.png"
+
+  icon:
+    repo: fontawesome/brands/github
+
+repo_url: https://github.com/nafnix/fastapi-exts
+
+plugins:
+  - git-revision-date-localized:
+      enable_creation_date: true

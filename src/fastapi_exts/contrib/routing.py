@@ -3,11 +3,12 @@ from typing import Any
 
 from fastapi import routing
 
-from fastapi_exts.responses import build_responses
-from fastapi_exts.routing.utils import analyze_and_update
+from fastapi_exts.contrib.responses import build_responses
+
+from .utils import analyze_and_update
 
 
-class ExtAPIRoute(routing.APIRoute):
+class APIRoute(routing.APIRoute):
     def __init__(
         self,
         path: str,
@@ -17,14 +18,14 @@ class ExtAPIRoute(routing.APIRoute):
     ):
         responses = responses or {}
         for i in analyze_and_update(endpoint):
-            responses.update(build_responses(*i.exceptions))
+            responses.update(build_responses(*i.responses))
             if i.provider:
-                responses.update(build_responses(*i.provider.exceptions))
+                responses.update(build_responses(*i.provider.responses))
 
         super().__init__(path, endpoint, responses=responses, **kwds)
 
 
-class ExtWebSocketRoute(routing.APIWebSocketRoute):
+class APIWebSocketRoute(routing.APIWebSocketRoute):
     def __init__(
         self, path: str, endpoint: Callable[..., Any], **kwds
     ) -> None:
@@ -32,7 +33,7 @@ class ExtWebSocketRoute(routing.APIWebSocketRoute):
         super().__init__(path, endpoint, **kwds)
 
 
-class ExtAPIRouter(routing.APIRouter):
+class APIRouter(routing.APIRouter):
     def add_api_route(
         self,
         path: str,
@@ -42,9 +43,9 @@ class ExtAPIRouter(routing.APIRouter):
     ):
         responses = responses or {}
         for i in analyze_and_update(endpoint):
-            responses.update(build_responses(*i.exceptions))
+            responses.update(build_responses(*i.responses))
             if i.provider:
-                responses.update(build_responses(*i.provider.exceptions))
+                responses.update(build_responses(*i.provider.responses))
 
         super().add_api_route(path, endpoint, responses=responses, **kwds)
 

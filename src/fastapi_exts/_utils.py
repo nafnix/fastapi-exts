@@ -1,59 +1,14 @@
 import inspect
-from collections.abc import (
-    Awaitable,
-    Callable,
-    Coroutine,
-    Iterable,
-    Mapping,
-    Sequence,
-)
-from contextlib import AbstractAsyncContextManager, AbstractContextManager
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from datetime import UTC, datetime
 from functools import partial, update_wrapper
-from typing import (
-    Annotated,
-    Any,
-    ParamSpec,
-    TypeGuard,
-    TypeVar,
-    cast,
-    get_origin,
-    overload,
-)
-
-
-_P = ParamSpec("_P")
-_T = TypeVar("_T")
+from typing import Any, cast, overload
 
 
 class _Undefined: ...
 
 
 _undefined = cast(Any, _Undefined)
-
-
-class Is:
-    @staticmethod
-    def awaitable(v: _T) -> TypeGuard[Awaitable[_T]]:
-        return inspect.isawaitable(v)
-
-    @staticmethod
-    def coroutine_function(
-        v: Callable[_P, _T],
-    ) -> TypeGuard[Callable[_P, Coroutine[Any, Any, _T]]]:
-        return inspect.iscoroutinefunction(v)
-
-    @staticmethod
-    def annotated(value) -> TypeGuard[Annotated]:
-        return get_origin(value) is Annotated
-
-    @staticmethod
-    def async_context(value) -> TypeGuard[AbstractAsyncContextManager]:
-        return hasattr(value, "__aenter__") and hasattr(value, "__aexit__")
-
-    @staticmethod
-    def context(value) -> TypeGuard[AbstractContextManager]:
-        return hasattr(value, "__enter__") and hasattr(value, "__exit__")
 
 
 def update_signature(
@@ -88,25 +43,10 @@ def new_function(
     return result
 
 
-def get_annotated_type(value: Annotated) -> type:
-    return value.__origin__
-
-
-def get_annotated_metadata(value: Annotated) -> tuple:
-    return value.__metadata__
-
-
 def _merge_dict(
     target: dict,
     source: Mapping,
 ):
-    """深层合并两个字典
-
-    :param target: 存放合并内容的字典
-    :param source: 来源, 因为不会修改, 所以只读映射就可以
-    :param exclude_keys: 需要排除的 keys
-    """
-
     for ok, ov in source.items():
         v = target.get(ok)
         # 如果两边都是映射类型, 就可以合并

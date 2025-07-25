@@ -18,16 +18,22 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "devtools>=0.12.2",
-    "fastapi-utils>=0.8.0",
-    "httpx>=0.28.1",
-    "ipykernel>=6.29.5",
-    "pydantic>=2",
-    "pytest>=8.4.0",
     "ruff>=0.11.8",
-    "uvicorn>=0.34.2",
+]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-git-revision-date-localized-plugin>=1.4.7",
+    "mkdocs-material>=9.6.15",
+]
+limiter = [
+    "redis[hiredis]>=6.2.0",
 ]
 sqlalchemy = [
     "sqlalchemy>=2",
+]
+test = [
+    "httpx>=0.28.1",
+    "pytest>=8.4.1",
 ]
 
 
@@ -61,7 +67,6 @@ select = ["ALL"]
 ignore = ["D", "ANN", "E114", "E117", "B008", "ISC001", "PGH003", "FA102", "PLW2901", "DTZ005", "COM812", "TCH", "TD", "FIX001", "FIX002", "S605", "S607", "S101", "RUF001", "EM101", "TRY003", "ERA001", "B010"]
 
 [tool.ruff.lint.per-file-ignores]
-"**/__init__.py" = ["F401"]
 "tests/**/*.py" = ["UP031", "E402"]
 "notebook/**/*.ipynb" = ["ALL"]
 "src/main.py" = ["F401"]

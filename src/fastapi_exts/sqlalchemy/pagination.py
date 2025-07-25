@@ -2,15 +2,15 @@ from typing import overload
 
 from sqlalchemy import MappingResult, ScalarResult
 
-from fastapi_exts.pagination import (
+from fastapi_exts.contrib.pagination import (
     APIPage,
     APIPageParamsModel,
     BaseModelT,
     Page,
     PageParamsModel,
 )
-from fastapi_exts.pagination import api_page as _api_page
-from fastapi_exts.pagination import page as _page
+from fastapi_exts.contrib.pagination import api_page as _api_page
+from fastapi_exts.contrib.pagination import page as _page
 
 
 @overload

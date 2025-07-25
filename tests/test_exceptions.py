@@ -1,12 +1,45 @@
-from fastapi_exts.exceptions import HTTPProblem
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from fastapi_exts.exceptions import (
+    ExceptionExtension,
+    HTTPCodeError,
+    HTTPProblem,
+)
+from fastapi_exts.manager import ExtensionManager
 
 
-class WTF(HTTPProblem):
-    type = "urn:problem-type:wtf"
-    title = "WTF"
+def test_http_code_error():
+    app = FastAPI()
+
+    mng = ExtensionManager()
+    mng.register(ExceptionExtension())
+    mng.install(app)
+
+    @app.get("/")
+    def _():
+        raise HTTPCodeError
+
+    client = TestClient(app)
+
+    res = client.get("/")
+    assert res.is_error
+    assert res.json()["code"] == HTTPCodeError.__name__
 
 
 def test_http_problem():
-    data = WTF().data
-    assert data.type == "urn:problem-type:wtf"
-    assert data.title == "WTF"
+    app = FastAPI()
+
+    mng = ExtensionManager()
+    mng.register(ExceptionExtension())
+    mng.install(app)
+
+    @app.get("/")
+    def _():
+        raise HTTPProblem
+
+    client = TestClient(app)
+
+    res = client.get("/")
+    assert res.is_error
+    assert res.json()["title"] == HTTPProblem.__name__

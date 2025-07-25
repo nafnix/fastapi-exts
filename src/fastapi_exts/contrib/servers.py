@@ -21,11 +21,12 @@ def servers(*configs: ServerConfig | HttpUrl | str):
                 if isinstance(url, str):
                     i["url"] = url
                 else:
-                    i["url"] = url.unicode_string()
+                    i["url"] = url.encoded_string()
 
             if desc := config.get("description"):
                 i["description"] = desc
 
-        results.append(i)
+        if i:
+            results.append(i)
 
     return results

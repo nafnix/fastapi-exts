@@ -1,15 +1,20 @@
 from abc import ABC
-from collections.abc import Iterable, Mapping
-from typing import Any, Generic, Literal, cast
+from collections.abc import Mapping
+from typing import Any, Generic, Literal, TypeVar, cast
 
-from fastapi import status
+from fastapi import FastAPI, Request, status
 from fastapi.responses import Response
 from fastapi.utils import is_body_allowed_for_status_code
 from pydantic import BaseModel, Field, create_model
 
+from fastapi_exts.contrib.responses import (
+    ResponseInfoInterface,
+    ResponseInfoSchemaInterface,
+)
+
 
 try:
-    import orjson
+    import orjson  # type: ignore
 except ImportError:
     orjson = None
 
@@ -19,45 +24,34 @@ else:
     from fastapi.responses import ORJSONResponse as JSONResponse
 
 
-from .interfaces import (
-    BaseModelT_co,
-    HTTPErrorInterface,
-    HTTPSchemaErrorInterface,
-)
+BaseModelT = TypeVar("BaseModelT", bound=BaseModel)
 
 
-try:
-    import orjson  # type: ignore
-except ModuleNotFoundError:  # pragma: nocover
-    orjson = None
-
-
-class BaseHTTPError(Exception, ABC, HTTPErrorInterface):
+class BaseHTTPError(ABC, ResponseInfoInterface, Exception):
     status = status.HTTP_400_BAD_REQUEST
     headers = None
 
-    data: Any = None
+    media_type: str
 
 
 class BaseHTTPDataError(
     BaseHTTPError,
     ABC,
-    HTTPSchemaErrorInterface[BaseModelT_co],
+    ResponseInfoSchemaInterface[BaseModelT],
 ):
-    data: BaseModelT_co
+    data: BaseModelT
 
 
-class NamedHTTPError(
-    BaseHTTPDataError[BaseModelT_co],
-    Generic[BaseModelT_co],
-):
+class HTTPCodeError(BaseHTTPDataError[BaseModelT], Generic[BaseModelT]):
     code: str | None = None
     message: str | None = None
 
-    targets: Iterable[str] | None = None
+    @classmethod
+    def get_code(cls):
+        return cls.code or cls.__name__
 
-    __schema_name__: str | None = None
-    __build_schema_kwargs__: Mapping | None = None
+    __get_schema_name__: str | None = None
+    __get_schema_kwargs__: Mapping | None = None
     """
     see:
     - https://docs.pydantic.dev/latest/api/base_model/#pydantic.create_model
@@ -65,31 +59,20 @@ class NamedHTTPError(
     """
 
     @classmethod
-    def get_code(cls):
-        return cls.code or cls.__name__.removesuffix("Error")
-
-    @classmethod
-    def build_schema(cls) -> type[BaseModelT_co]:
+    def get_schema(cls) -> type[BaseModelT]:
         code = cls.get_code()
-        kwargs = {
-            "code": (Literal[code], ...),
-            "message": (str, ...),
-        }
-        if cls.targets is not None:
-            kwargs["target"] = (Literal[*cls.targets], ...)
-
-        kwargs.update(cls.__build_schema_kwargs__ or {})
+        kwargs = {"code": (Literal[code], ...), "message": (str, ...)}
+        kwargs.update(cls.__get_schema_kwargs__ or {})
 
         return cast(
-            type[BaseModelT_co],
-            create_model(cls.__schema_name__ or f"{code}Model", **kwargs),
+            type[BaseModelT],
+            create_model(cls.__get_schema_name__ or cls.__name__, **kwargs),
         )
 
     def __init__(
         self,
         *,
         message: str | None = None,
-        target: str | None = None,
         headers: dict[str, str] | None = None,
     ) -> None:
         kwargs: dict[str, Any] = {
@@ -97,12 +80,7 @@ class NamedHTTPError(
             "message": message or self.message or "operation failed",
         }
 
-        if target:
-            kwargs["target"] = target
-            kwargs["message"] = kwargs["message"].format(target=target)
-
-        schema = self.build_schema()
-
+        schema = self.get_schema()
         self.data = schema(**kwargs)
 
         self.headers = headers or self.headers
@@ -116,11 +94,9 @@ class NamedHTTPError(
 
 class HTTPProblem(BaseHTTPDataError):  # noqa: N818
     type: str | None = None
+    title: str | None = None
+    media_type = "application/problem+json"
 
-    title: str
-
-    __schema_name__: str | None = None
-    __build_schema_kwargs__: Mapping | None = None
     """
     see:
     - https://docs.pydantic.dev/latest/api/base_model/#pydantic.create_model
@@ -137,30 +113,38 @@ class HTTPProblem(BaseHTTPDataError):  # noqa: N818
         self.detail = detail
         self.instance = instance
         kwds = {
-            "title": self.title,
+            "title": self.get_title(),
             "status": self.status,
         }
-        if self.type:
+        if self.type is not None:
             kwds["type"] = self.type
-        if self.detail:
+        if self.detail is not None:
             kwds["detail"] = self.detail
-        if self.instance:
+        if self.instance is not None:
             kwds["instance"] = self.instance
 
-        self.data = self.build_schema().model_validate(kwds)
+        self.data = self.get_schema().model_validate(kwds)
         self.headers = headers or self.headers
 
     @classmethod
-    def build_schema(cls):
+    def get_title(cls):
+        return cls.title or cls.__name__
+
+    __get_schema_name__: str | None = None
+    __get_schema_kwargs__: Mapping | None = None
+
+    @classmethod
+    def get_schema(cls):
         type_ = cls.type
         status = cls.status
+        title = cls.get_title()
 
         kwargs: dict = {
             "type": (
                 str,
                 Field(None, json_schema_extra={"format": "uri"}),
             ),
-            "title": (Literal[cls.title], ...),
+            "title": (Literal[title], ...),
             "status": (Literal[status], ...),
             "detail": (str, None),
             "instance": (
@@ -175,30 +159,32 @@ class HTTPProblem(BaseHTTPDataError):  # noqa: N818
                 Field(json_schema_extra={"format": "uri"}),
             )
 
-        kwargs.update(cls.__build_schema_kwargs__ or {})
+        kwargs.update(cls.__get_schema_kwargs__ or {})
 
         name = cls.__name__
-        return create_model(cls.__schema_name__ or name, **kwargs)
+        return create_model(cls.__get_schema_name__ or name, **kwargs)
 
 
-def ext_http_error_handler(_, exc: BaseHTTPError):
+def ext_http_error_handler(_: Request, exc: BaseHTTPError):
     headers = getattr(exc, "headers", None)
 
     if not is_body_allowed_for_status_code(exc.status):
         return Response(status_code=exc.status, headers=headers)
 
-    if isinstance(exc.data, BaseModel):
-        content = exc.data.model_dump(exclude_none=True)
-    else:
-        content = exc.data
+    data = getattr(exc, "data", None)
+    if isinstance(data, BaseModel):
+        data = data.model_dump(exclude_unset=True)
 
-    media_type = None
-    if isinstance(exc, HTTPProblem):
-        media_type = "application/problem+json"
+    media_type = getattr(exc, "media_type", None)
 
     return JSONResponse(
-        content,
+        data,
         status_code=exc.status,
         headers=headers,
         media_type=media_type,
     )
+
+
+class ExceptionExtension:
+    def setup(self, app: FastAPI):
+        app.exception_handlers[BaseHTTPError] = ext_http_error_handler
