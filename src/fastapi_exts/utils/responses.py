@@ -1,5 +1,4 @@
-from abc import abstractmethod
-from typing import Protocol, TypeVar, cast, runtime_checkable
+from typing import Protocol, TypeVar, cast
 
 from pydantic import BaseModel
 
@@ -7,20 +6,17 @@ from pydantic import BaseModel
 BaseModelT = TypeVar("BaseModelT", bound=BaseModel)
 
 
-@runtime_checkable
-class ResponseInfoInterface(Protocol):
+class ResponseBase(Protocol):
     status: int
 
 
-@runtime_checkable
-class ResponseInfoSchemaInterface(
-    ResponseInfoInterface,
+class ResponseSchema(
+    ResponseBase,
     Protocol[BaseModelT],
 ):
     data: BaseModelT
 
     @classmethod
-    @abstractmethod
     def get_schema(cls) -> type[BaseModelT]: ...
 
 
@@ -42,15 +38,13 @@ def _merge_responses(
 
 
 def _info_responses(
-    *infos: type[
-        ResponseInfoInterface | ResponseInfoSchemaInterface[BaseModel]
-    ],
+    *infos: type[ResponseBase | ResponseSchema[BaseModel]],
 ):
     result: dict[int, None | dict] = {}
 
     for info in infos:
         if hasattr(info, "get_schema"):
-            info = cast(type[ResponseInfoSchemaInterface[BaseModel]], info)
+            info = cast(type[ResponseSchema[BaseModel]], info)
             schema = info.get_schema()
             current: None | dict
             if (current := result.get(info.status)) and current.get("model"):
@@ -64,9 +58,7 @@ def _info_responses(
 
 
 Response = (
-    int
-    | tuple[int, type[BaseModel]]
-    | type[ResponseInfoInterface | ResponseInfoSchemaInterface]
+    int | tuple[int, type[BaseModel]] | type[ResponseBase | ResponseSchema]
 )
 
 
@@ -77,7 +69,7 @@ class Responses:
 
 def build_responses(*responses: Response):
     result = {}
-    infos: list[type[ResponseInfoInterface]] = []
+    infos: list[type[ResponseBase]] = []
 
     for arg in responses:
         status = None

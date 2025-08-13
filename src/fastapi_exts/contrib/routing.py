@@ -3,7 +3,7 @@ from typing import Any
 
 from fastapi import routing
 
-from fastapi_exts.contrib.responses import build_responses
+from fastapi_exts.utils.responses import build_responses
 
 from .utils import analyze_and_update
 

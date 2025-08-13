@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 
-from fastapi_exts.contrib.responses import build_responses
+from fastapi_exts.utils.responses import build_responses
 
 
 class Resp:

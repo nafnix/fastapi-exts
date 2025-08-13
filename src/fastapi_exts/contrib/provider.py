@@ -5,7 +5,7 @@ from fastapi import params
 
 from fastapi_exts._utils import _undefined
 
-from .responses import ResponseInfoInterface
+from ..utils.responses import ResponseBase
 
 
 T = TypeVar("T")
@@ -20,7 +20,7 @@ class Provider(Generic[T]):
         dependency: type[T],
         *,
         use_cache: bool = True,
-        responses: list[type[ResponseInfoInterface]] | None = None,
+        responses: list[type[ResponseBase]] | None = None,
     ) -> None: ...
 
     @overload
@@ -29,7 +29,7 @@ class Provider(Generic[T]):
         dependency: Callable[..., Coroutine[Any, Any, T]],
         *,
         use_cache: bool = True,
-        responses: list[type[ResponseInfoInterface]] | None = None,
+        responses: list[type[ResponseBase]] | None = None,
     ) -> None: ...
 
     @overload
@@ -38,7 +38,7 @@ class Provider(Generic[T]):
         dependency: Callable[..., Awaitable[T]],
         *,
         use_cache: bool = True,
-        responses: list[type[ResponseInfoInterface]] | None = None,
+        responses: list[type[ResponseBase]] | None = None,
     ) -> None: ...
 
     @overload
@@ -47,7 +47,7 @@ class Provider(Generic[T]):
         dependency: Callable[..., T],
         *,
         use_cache: bool = True,
-        responses: list[type[ResponseInfoInterface]] | None = None,
+        responses: list[type[ResponseBase]] | None = None,
     ) -> None: ...
 
     def __init__(
@@ -59,7 +59,7 @@ class Provider(Generic[T]):
         *,
         use_cache: bool = True,
         scopes: Sequence[str] | None = None,
-        responses: list[type[ResponseInfoInterface]] | None = None,
+        responses: list[type[ResponseBase]] | None = None,
     ) -> None:
         if scopes is not None:
             self.depends = params.Security(

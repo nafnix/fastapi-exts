@@ -12,12 +12,12 @@ from fastapi_exts._typing import (
 )
 
 from .provider import Provider
-from .responses import ResponseInfoInterface
+from ..utils.responses import ResponseBase
 from .signature import update_signature
 
 
 class ParamInfo(NamedTuple):
-    responses: list[type[ResponseInfoInterface]]
+    responses: list[type[ResponseBase]]
     provider: Provider | None
 
 

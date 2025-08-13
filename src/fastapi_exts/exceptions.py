@@ -7,10 +7,7 @@ from fastapi.responses import Response
 from fastapi.utils import is_body_allowed_for_status_code
 from pydantic import BaseModel, Field, create_model
 
-from fastapi_exts.contrib.responses import (
-    ResponseInfoInterface,
-    ResponseInfoSchemaInterface,
-)
+from fastapi_exts.utils.responses import ResponseBase, ResponseSchema
 
 
 try:
@@ -27,7 +24,7 @@ else:
 BaseModelT = TypeVar("BaseModelT", bound=BaseModel)
 
 
-class BaseHTTPError(ABC, ResponseInfoInterface, Exception):
+class BaseHTTPError(ABC, ResponseBase, Exception):
     status = status.HTTP_400_BAD_REQUEST
     headers = None
 
@@ -37,7 +34,7 @@ class BaseHTTPError(ABC, ResponseInfoInterface, Exception):
 class BaseHTTPDataError(
     BaseHTTPError,
     ABC,
-    ResponseInfoSchemaInterface[BaseModelT],
+    ResponseSchema[BaseModelT],
 ):
     data: BaseModelT
 
