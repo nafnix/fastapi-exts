@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 
+from .constants import LOG_EXTRA_KEY
 from .context import request_info_var
 
 
@@ -9,5 +10,5 @@ if TYPE_CHECKING:
 
 class RequestInfoLogFilter:
     def filter(self, record: "LogRecord") -> bool:
-        record.request_info = request_info_var.get(None)
+        setattr(record, LOG_EXTRA_KEY, request_info_var.get(None))
         return True

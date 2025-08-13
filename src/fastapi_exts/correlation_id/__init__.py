@@ -1,11 +1,11 @@
 from fastapi import Depends, FastAPI
 
-from fastapi_exts._utils import merge
+from fastapi_exts.utils.merge import merge
 
 from .constants import HEADER_NAME
 from .context import correlation_id_var
-from .dependencies import CorrelationID, get_correlation_id
-from .log import CorrelationIdLogFilter
+from .deps import CorrelationID, get_correlation_id
+from .log_filter import CorrelationIdLogFilter
 from .middleware import CorrelationIDMiddleware
 
 

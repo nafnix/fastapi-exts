@@ -3,7 +3,7 @@ import time
 from starlette.requests import Request
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .constants import SCOPE_NAME
+from .constants import STATE_KEY
 from .context import request_info_var
 from .types import GetClientIP, RequestInfo
 
@@ -41,7 +41,7 @@ class RequestInfoMiddleware:
         request_info_var.set(info)
 
         async def send_wrapper(message: Message):
-            info.update(scope.get(SCOPE_NAME, {}))
+            info.update(scope.get("state", {}).get(STATE_KEY, {}))
             match message["type"]:
                 case "http.response.start":
                     info["status_code"] = message["status"]

@@ -1,3 +1,7 @@
 HEADER_NAME = "X-Correlation-ID"
 
-SCOPE_KEY = "correlation_id"
+STATE_KEY = "correlation_id"
+
+FALLBACK_VALUE = "N/A"
+
+LOG_EXTRA_NAME = "correlation_id"
