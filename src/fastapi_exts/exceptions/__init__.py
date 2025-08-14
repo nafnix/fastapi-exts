@@ -2,29 +2,21 @@ from abc import ABC
 from collections.abc import Mapping
 from typing import Any, Generic, Literal, TypeVar, cast
 
-from fastapi import FastAPI, Request, status
-from fastapi.responses import Response
+from fastapi import FastAPI, status
+from fastapi.responses import JSONResponse, Response
 from fastapi.utils import is_body_allowed_for_status_code
 from pydantic import BaseModel, Field, create_model
 
-from fastapi_exts.utils.responses import ResponseBase, ResponseSchema
-
-
-try:
-    import orjson  # type: ignore
-except ImportError:
-    orjson = None
-
-if orjson is None:
-    from fastapi.responses import JSONResponse
-else:
-    from fastapi.responses import ORJSONResponse as JSONResponse
+from fastapi_exts.utils.responses import (
+    ResponseDataProtocol,
+    ResponseProtocol,
+)
 
 
 BaseModelT = TypeVar("BaseModelT", bound=BaseModel)
 
 
-class BaseHTTPError(ABC, ResponseBase, Exception):
+class BaseHTTPError(ABC, ResponseProtocol, Exception):
     status = status.HTTP_400_BAD_REQUEST
     headers = None
 
@@ -34,7 +26,7 @@ class BaseHTTPError(ABC, ResponseBase, Exception):
 class BaseHTTPDataError(
     BaseHTTPError,
     ABC,
-    ResponseSchema[BaseModelT],
+    ResponseDataProtocol[BaseModelT],
 ):
     data: BaseModelT
 
@@ -89,7 +81,7 @@ class HTTPCodeError(BaseHTTPDataError[BaseModelT], Generic[BaseModelT]):
         return f"<{self.__class__.__name__: str(self.data)}>"
 
 
-class HTTPProblem(BaseHTTPDataError):  # noqa: N818
+class HTTPProblem(BaseHTTPDataError):
     type: str | None = None
     title: str | None = None
     media_type = "application/problem+json"
@@ -162,8 +154,9 @@ class HTTPProblem(BaseHTTPDataError):  # noqa: N818
         return create_model(cls.__get_schema_name__ or name, **kwargs)
 
 
-def ext_http_error_handler(_: Request, exc: BaseHTTPError):
-    headers = getattr(exc, "headers", None)
+def ext_http_error_handler(request, exc):  # noqa: ARG001
+    exc = cast(BaseHTTPError, exc)
+    headers = exc.headers
 
     if not is_body_allowed_for_status_code(exc.status):
         return Response(status_code=exc.status, headers=headers)
@@ -184,4 +177,7 @@ def ext_http_error_handler(_: Request, exc: BaseHTTPError):
 
 class ExceptionExtension:
     def setup(self, app: FastAPI):
-        app.exception_handlers[BaseHTTPError] = ext_http_error_handler
+        app.add_exception_handler(
+            BaseHTTPError,
+            ext_http_error_handler,
+        )

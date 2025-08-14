@@ -7,7 +7,7 @@ from sqlalchemy import orm as saorm
 from sqlalchemy.sql.type_api import TypeEngine
 from typing_extensions import get_original_bases
 
-from fastapi_exts._utils import _undefined
+from fastapi_exts._utils import undefined
 
 
 T = TypeVar("T", bound=Annotated)
@@ -16,7 +16,7 @@ T = TypeVar("T", bound=Annotated)
 class IDBase(saorm.DeclarativeBase, Generic[T]):
     __abstract__ = True
     IDPythonType = T  # type: ignore
-    IDColumnType: TypeEngine[T] = _undefined
+    IDColumnType: TypeEngine[T] = undefined
     id: saorm.Mapped[T]
 
     def __init_subclass__(cls, *args, **kwds) -> None:
@@ -62,8 +62,6 @@ class IDBase(saorm.DeclarativeBase, Generic[T]):
 
 
 class AuditMixin:
-    """当继承该类时, 会给表添加创建时间和更新时间字段"""
-
     created_at: saorm.Mapped[datetime] = saorm.mapped_column(
         server_default=sa.func.now(),
         sort_order=9998,

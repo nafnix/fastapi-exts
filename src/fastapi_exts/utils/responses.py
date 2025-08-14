@@ -6,12 +6,12 @@ from pydantic import BaseModel
 BaseModelT = TypeVar("BaseModelT", bound=BaseModel)
 
 
-class ResponseBase(Protocol):
+class ResponseProtocol(Protocol):
     status: int
 
 
-class ResponseSchema(
-    ResponseBase,
+class ResponseDataProtocol(
+    ResponseProtocol,
     Protocol[BaseModelT],
 ):
     data: BaseModelT
@@ -25,12 +25,11 @@ def _merge_responses(
     source: dict,
 ):
     for status, response in target.items():
-        if response:
+        if response and status in source:
             model_class = response.get("model")
-            if status in source:
-                source_schema = source[status].get("model")
-                if source_schema and model_class:
-                    target[status]["model"] = model_class | source_schema
+            source_schema = source[status].get("model")
+            if source_schema and model_class:
+                target[status]["model"] = model_class | source_schema
 
     for status, response in source.items():
         if status not in target:
@@ -38,13 +37,13 @@ def _merge_responses(
 
 
 def _info_responses(
-    *infos: type[ResponseBase | ResponseSchema[BaseModel]],
+    *infos: type[ResponseProtocol | ResponseDataProtocol[BaseModel]],
 ):
     result: dict[int, None | dict] = {}
 
     for info in infos:
         if hasattr(info, "get_schema"):
-            info = cast(type[ResponseSchema[BaseModel]], info)
+            info = cast(type[ResponseDataProtocol[BaseModel]], info)
             schema = info.get_schema()
             current: None | dict
             if (current := result.get(info.status)) and current.get("model"):
@@ -58,7 +57,9 @@ def _info_responses(
 
 
 Response = (
-    int | tuple[int, type[BaseModel]] | type[ResponseBase | ResponseSchema]
+    int
+    | tuple[int, type[BaseModel]]
+    | type[ResponseProtocol | ResponseDataProtocol]
 )
 
 
@@ -69,7 +70,7 @@ class Responses:
 
 def build_responses(*responses: Response):
     result = {}
-    infos: list[type[ResponseBase]] = []
+    infos: list[type[ResponseProtocol]] = []
 
     for arg in responses:
         status = None

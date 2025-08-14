@@ -2,7 +2,7 @@ import inspect
 from collections.abc import Callable, Iterable
 from typing import Any
 
-from fastapi_exts._utils import _undefined
+from fastapi_exts._utils import undefined
 
 
 def list_parameters(fn: Callable, /) -> list[inspect.Parameter]:
@@ -13,16 +13,16 @@ def list_parameters(fn: Callable, /) -> list[inspect.Parameter]:
 def update_signature(
     fn: Callable,
     *,
-    parameters: Iterable[inspect.Parameter] | None = _undefined,
-    return_annotation: type | None = _undefined,
+    parameters: Iterable[inspect.Parameter] | None = undefined,
+    return_annotation: type | None = undefined,
 ):
     signature = inspect.signature(fn)
 
-    if parameters != _undefined:
+    if parameters != undefined:
         parameters = list(parameters) if parameters is not None else parameters
         signature = signature.replace(parameters=parameters)
 
-    if return_annotation != _undefined:
+    if return_annotation != undefined:
         signature = signature.replace(return_annotation=return_annotation)
 
     setattr(fn, "__signature__", signature)

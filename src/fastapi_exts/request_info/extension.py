@@ -9,5 +9,11 @@ from .types import GetClientIP
 class RequestInfoExtension(ExtensionBase):
     name = "request_info"
 
-    def setup(self, app: FastAPI, get_client_ip: GetClientIP):
-        app.add_middleware(RequestInfoMiddleware, get_client_ip=get_client_ip)
+    def __init__(self, get_client_ip: GetClientIP) -> None:
+        self.get_client_ip = get_client_ip
+
+    def setup(self, app: FastAPI):
+        app.add_middleware(
+            RequestInfoMiddleware,
+            get_client_ip=self.get_client_ip,
+        )

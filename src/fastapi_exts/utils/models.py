@@ -47,7 +47,7 @@ class NaiveDatetimeModel(Model):
         return self
 
 
-class NaiveUTCModel(Model):
+class NaiveUTCDatetimeModel(Model):
     @model_validator(mode="after")
     def _naive_utc_datetime(self):
         _nested_transform(lambda x: naive_datetime(utc_datetime(x)), self)

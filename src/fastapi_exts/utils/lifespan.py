@@ -50,15 +50,15 @@ class Lifespan:
         self.context_managers.extend(lifespan.context_managers)
 
     @asynccontextmanager
-    async def __call__(self, _app: FastAPI):
+    async def __call__(self, app: FastAPI):
         for hook in self.startup_handlers:
-            ret = hook(_app)
+            ret = hook(app)
             if asyncio.iscoroutine(ret):
                 await ret
 
         async with AsyncExitStack() as stack:
             for ctx in self.context_managers:
-                i = ctx(_app)
+                i = ctx(app)
                 if isinstance(i, AbstractContextManager):
                     stack.enter_context(i)
                 elif isinstance(i, AbstractAsyncContextManager):
@@ -67,6 +67,6 @@ class Lifespan:
             yield
 
         for hook in self.shutdown_handlers:
-            ret = hook(_app)
+            ret = hook(app)
             if asyncio.iscoroutine(ret):
                 await ret

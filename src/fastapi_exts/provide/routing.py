@@ -17,10 +17,10 @@ class APIRoute(routing.APIRoute):
         **kwds,
     ):
         responses = responses or {}
+        endpoint_responses = []
         for i in analyze_and_update(endpoint):
-            responses.update(build_responses(*i.responses))
-            if i.provider:
-                responses.update(build_responses(*i.provider.responses))
+            endpoint_responses.extend(i.responses)
+        responses.update(build_responses(*endpoint_responses))
 
         super().__init__(path, endpoint, responses=responses, **kwds)
 
@@ -42,10 +42,10 @@ class APIRouter(routing.APIRouter):
         **kwds,
     ):
         responses = responses or {}
+        endpoint_responses = []
         for i in analyze_and_update(endpoint):
-            responses.update(build_responses(*i.responses))
-            if i.provider:
-                responses.update(build_responses(*i.provider.responses))
+            endpoint_responses.extend(i.responses)
+        responses.update(build_responses(*endpoint_responses))
 
         super().add_api_route(path, endpoint, responses=responses, **kwds)
 

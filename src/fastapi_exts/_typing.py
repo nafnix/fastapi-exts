@@ -13,10 +13,7 @@ from typing import (
 
 
 if TYPE_CHECKING:
-    from fastapi_exts.utils.responses import (
-        ResponseBase,
-        ResponseSchema,
-    )
+    from fastapi_exts.utils.responses import ResponseProtocol
 
 _P = ParamSpec("_P")
 _T = TypeVar("_T")
@@ -52,13 +49,5 @@ def get_annotated_metadata(value: Annotated) -> tuple:
     return value.__metadata__
 
 
-def is_response_info(value) -> TypeGuard[type["ResponseBase"]]:
+def is_response_info(value) -> TypeGuard[type["ResponseProtocol"]]:
     return isinstance(getattr(value, "status", None), int)
-
-
-def is_response_schema_info(
-    value,
-) -> TypeGuard[type["ResponseSchema"]]:
-    return is_response_info(value) and callable(
-        getattr(value, "get_schema", None)
-    )
