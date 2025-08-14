@@ -22,6 +22,7 @@ class ParamInfo(NamedTuple):
 
 
 def analyze_param(*, annotation: Any, value: Any) -> ParamInfo:
+    # TODO: 还没处理依赖是 annotation 的情况
     responses = (
         [
             arg
