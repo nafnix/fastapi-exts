@@ -1,6 +1,6 @@
 from collections.abc import Awaitable, Callable, Coroutine, Sequence
 from copy import copy
-from typing import Any, Generic, TypeVar, overload
+from typing import Any, Generic, NamedTuple, TypeVar, overload
 
 from fastapi import params
 from fastapi.dependencies.utils import get_typed_signature
@@ -120,10 +120,13 @@ class Provider(Generic[T]):
         self.exceptions: list[type[HTTPErrorInterface]] = exceptions or []
 
 
+class Provide(NamedTuple, Generic[T]):
+    value: T
+
+
 def create_provider_dependency(provider: Provider):
     def dependency(value=None):
-        provider.value = value
-        return provider
+        return Provide(value)
 
     parameters = list_parameters(dependency)
 
