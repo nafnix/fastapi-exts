@@ -1,6 +1,6 @@
 from collections.abc import Awaitable, Callable
 from inspect import isawaitable
-from typing import Any, cast
+from typing import Any, TypeVar, cast
 
 from fastapi import FastAPI
 from fastapi.openapi.docs import (
@@ -19,6 +19,7 @@ from fastapi_exts.utils.paths import URLPath
 OpenAPIModifier = Callable[
     [dict[str, Any]], dict[str, Any] | Awaitable[dict[str, Any]]
 ]
+OpenAPIModifierT = TypeVar("OpenAPIModifierT", bound=OpenAPIModifier)
 
 
 class OpenAPIExtension(ExtensionBase):
@@ -146,6 +147,15 @@ class OpenAPIExtension(ExtensionBase):
 
     def add_modifier(self, modifier: OpenAPIModifier):
         self._modifiers.add(modifier)
+
+    def register_modifier(
+        self, modifier: OpenAPIModifierT
+    ) -> OpenAPIModifierT:
+        self.add_modifier(modifier)
+        return modifier
+
+    def remove_modifier(self, modifier: OpenAPIModifier):
+        self._modifiers.remove(modifier)
 
     def setup(self, app: FastAPI):
         self._remove_default(app)
