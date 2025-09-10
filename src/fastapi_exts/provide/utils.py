@@ -4,11 +4,7 @@ from typing import Any, NamedTuple, get_args
 from fastapi import params
 from fastapi.dependencies.utils import get_typed_signature
 
-from fastapi_exts._typing import (
-    get_annotated_metadata,
-    is_annotated,
-    is_response_info,
-)
+from fastapi_exts._typing import get_annotated_metadata, is_annotated
 from fastapi_exts.utils.responses import ResponseProtocol
 from fastapi_exts.utils.signature import update_signature
 
@@ -27,7 +23,7 @@ def analyze_param(*, annotation: Any, value: Any) -> ParamInfo:
         [
             arg
             for arg in get_annotated_metadata(annotation)
-            if is_response_info(arg)
+            if ResponseProtocol.check(arg)
         ]
         if is_annotated(annotation)
         else []

@@ -8,8 +8,6 @@ from fastapi_exts.utils.responses import ResponseProtocol
 
 T = TypeVar("T")
 
-# scopes: Sequence[str] | None = None,
-
 
 class Provide(Generic[T]):
     @overload
@@ -48,7 +46,6 @@ class Provide(Generic[T]):
         responses: list[type[ResponseProtocol]] | None = None,
     ) -> T: ...
 
-    value: T
     depends: params.Depends
     responses: list[type[ResponseProtocol]]
 
@@ -69,7 +66,6 @@ class Provide(Generic[T]):
         return result  # type: ignore
 
 
-# params.Security
 class SecurityProvide(Provide[T], Generic[T]):
     depends: params.Security
 
