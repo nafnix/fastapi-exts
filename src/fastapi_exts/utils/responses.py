@@ -1,4 +1,4 @@
-from typing import Protocol, TypeVar, cast
+from typing import Protocol, TypeGuard, TypeVar, cast
 
 from pydantic import BaseModel
 
@@ -9,6 +9,10 @@ BaseModelT = TypeVar("BaseModelT", bound=BaseModel)
 class ResponseProtocol(Protocol):
     status: int
 
+    @staticmethod
+    def check(value) -> TypeGuard[type["ResponseProtocol"]]:
+        return isinstance(getattr(value, "status", None), int)
+
 
 class ResponseDataProtocol(
     ResponseProtocol,
@@ -18,6 +22,12 @@ class ResponseDataProtocol(
 
     @classmethod
     def get_schema(cls) -> type[BaseModelT]: ...
+
+    @staticmethod
+    def check(value) -> TypeGuard[type["ResponseDataProtocol"]]:
+        return ResponseProtocol.check(value) and (
+            callable(getattr(value, "get_schema", None))
+        )
 
 
 def _merge_responses(

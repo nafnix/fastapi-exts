@@ -22,15 +22,13 @@ class DependencyInfo(TypedDict):
     required: NotRequired[bool]
 
 
-class ExtensionBase(Protocol):
+class ExtensionProtocol(Protocol):
     name: str
 
     def setup(self, app: FastAPI) -> None: ...
 
 
-class ExtensionWithDeps(ExtensionBase):
-    """有依赖关系的扩展基类"""
-
+class ExtensionWithDepsProtocol(ExtensionProtocol):
     dependencies: Sequence[DependencyInfo]
 
 
@@ -42,7 +40,7 @@ class _AnalyzeResult(NamedTuple):
 class _ExtensionDependencyResolver:
     """扩展依赖解析器"""
 
-    def __init__(self, extensions: dict[str, ExtensionBase]):
+    def __init__(self, extensions: dict[str, ExtensionProtocol]):
         self.extensions = extensions
         self._dependency_graph: dict[str, list[str]] = {}
         self._dependency_info: dict[str, list[DependencyInfo]] = {}
@@ -133,17 +131,17 @@ class ExtensionManager:
     STATE_KEY: Final[str] = "fastapi_extension_manager"
 
     def __init__(self) -> None:
-        self._extensions: dict[str, ExtensionBase] = {}
+        self._extensions: dict[str, ExtensionProtocol] = {}
         self._deps_resolver = _ExtensionDependencyResolver(self._extensions)
 
     def get(self, name: str):
         return self._extensions.get(name)
 
-    def register(self, extension: ExtensionBase):
+    def register(self, extension: ExtensionProtocol):
         self._extensions.update({extension.name: extension})
         return self
 
-    def remove(self, extension: ExtensionBase):
+    def remove(self, extension: ExtensionProtocol):
         self._extensions.pop(extension.name)
 
     def list(self):

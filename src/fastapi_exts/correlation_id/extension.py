@@ -1,6 +1,6 @@
 from fastapi import Depends, FastAPI
 
-from fastapi_exts.core import ExtensionManager, ExtensionWithDeps
+from fastapi_exts.core import ExtensionManager, ExtensionWithDepsProtocol
 from fastapi_exts.openapi.extension import OpenAPIExtension
 from fastapi_exts.utils.merge import merge
 
@@ -24,7 +24,7 @@ def add_correlation_id_headers(openapi: dict) -> dict:
     return openapi
 
 
-class CorrelationIDExtension(ExtensionWithDeps):
+class CorrelationIDExtension(ExtensionWithDepsProtocol):
     name = "correlation_id"
     dependencies = ({"name": OpenAPIExtension.name, "required": False},)
 

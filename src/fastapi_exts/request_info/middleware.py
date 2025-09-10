@@ -41,7 +41,8 @@ class RequestInfoMiddleware:
         request_info_var.set(info)
 
         async def send_wrapper(message: Message):
-            info.update(scope.get("state", {}).get(STATE_KEY, {}))
+            state: dict = scope.get("state", {})
+            info.update(state.get(STATE_KEY, {}))
             match message["type"]:
                 case "http.response.start":
                     info["status_code"] = message["status"]

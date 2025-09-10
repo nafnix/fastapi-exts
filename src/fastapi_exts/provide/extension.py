@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 
-from .routing import APIRouter
+from fastapi_exts.core import ExtensionProtocol
+from fastapi_exts.provide.routing import APIRouter
 
 
-class ProvideExtension:
+class ProvideExtension(ExtensionProtocol):
     name = "provide"
 
     def setup(self, app: FastAPI):

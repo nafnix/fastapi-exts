@@ -1,6 +1,6 @@
 [project]
 name = "fastapi-exts"
-version = "0.2.7"
+version = "0.3.0-a1"
 description = "Add your description here"
 readme = "README.md"
 authors = [
@@ -9,7 +9,6 @@ authors = [
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.12",
-    "scalar-fastapi>=1.2.3",
 ]
 
 [build-system]
@@ -26,15 +25,13 @@ docs = [
     "mkdocs-git-revision-date-localized-plugin>=1.4.7",
     "mkdocs-material>=9.6.15",
 ]
-limiter = [
-    "redis[hiredis]>=6.2.0",
-]
-sqlalchemy = [
-    "sqlalchemy>=2",
-]
 test = [
     "httpx>=0.28.1",
     "pytest>=8.4.1",
+]
+tests = [
+    "anyio>=4.10.0",
+    "pytest-cov>=7.0.0",
 ]
 
 

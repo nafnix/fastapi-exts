@@ -3,7 +3,7 @@ from typing import Any, Generic, Literal, cast
 
 from pydantic import create_model
 
-from .base import BaseHTTPDataError, BaseModelT
+from fastapi_exts.exceptions.base import BaseHTTPDataError, BaseModelT
 
 
 class HTTPCodeError(BaseHTTPDataError[BaseModelT], Generic[BaseModelT]):

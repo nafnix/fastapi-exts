@@ -1,10 +1,18 @@
 import asyncio
-from collections.abc import Awaitable, Callable, Coroutine
+import inspect
+from collections.abc import (
+    AsyncGenerator,
+    Awaitable,
+    Callable,
+    Coroutine,
+    Generator,
+)
 from contextlib import (
     AbstractAsyncContextManager,
     AbstractContextManager,
     AsyncExitStack,
     asynccontextmanager,
+    contextmanager,
 )
 from typing import TypeVar
 
@@ -18,19 +26,27 @@ Handler = Callable[
 
 HandlerT = TypeVar("HandlerT", bound=Handler)
 
-ContextManager = Callable[
+ContextManagerFn = Callable[
     [FastAPI],
-    AbstractContextManager | AbstractAsyncContextManager,
+    AbstractContextManager
+    | AbstractAsyncContextManager
+    | Generator
+    | AsyncGenerator,
 ]
 
-ContextManagerT = TypeVar("ContextManagerT", bound=ContextManager)
+ContextManagerT = TypeVar("ContextManagerT", bound=ContextManagerFn)
 
 
 class Lifespan:
     def __init__(self) -> None:
         self.startup_handlers: list[Handler] = []
         self.shutdown_handlers: list[Handler] = []
-        self.context_managers: list[ContextManager] = []
+        self.context_managers: list[
+            Callable[
+                [FastAPI],
+                AbstractContextManager | AbstractAsyncContextManager,
+            ]
+        ] = []
 
     def on_startup(self, fn: HandlerT) -> HandlerT:
         self.startup_handlers.append(fn)
@@ -41,7 +57,15 @@ class Lifespan:
         return fn
 
     def on_context(self, fn: ContextManagerT) -> ContextManagerT:
-        self.context_managers.append(fn)
+        if inspect.isgeneratorfunction(fn):
+            result = contextmanager(fn)
+        elif inspect.isasyncgenfunction(fn):
+            result = asynccontextmanager(fn)
+        else:
+            result = fn
+
+        self.context_managers.append(result)  # pyright: ignore[reportArgumentType]
+
         return fn
 
     def include(self, lifespan: "Lifespan"):

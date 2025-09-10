@@ -1,6 +1,5 @@
 from typing import cast
 
-from fastapi import FastAPI
 from fastapi.responses import JSONResponse, Response
 from fastapi.utils import is_body_allowed_for_status_code
 from pydantic import BaseModel
@@ -8,7 +7,7 @@ from pydantic import BaseModel
 from .base import BaseHTTPError
 
 
-def ext_http_error_handler(request, exc):  # noqa: ARG001
+def fastapi_exts_exception_handler(request, exc):  # noqa: ARG001
     exc = cast(BaseHTTPError, exc)
     headers = exc.headers
 
@@ -27,11 +26,3 @@ def ext_http_error_handler(request, exc):  # noqa: ARG001
         headers=headers,
         media_type=media_type,
     )
-
-
-class ExceptionExtension:
-    def setup(self, app: FastAPI):
-        app.add_exception_handler(
-            BaseHTTPError,
-            ext_http_error_handler,
-        )

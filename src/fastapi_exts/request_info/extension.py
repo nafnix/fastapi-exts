@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 
-from fastapi_exts.core import ExtensionBase
+from fastapi_exts.core import ExtensionProtocol
 
 from .middleware import RequestInfoMiddleware
 from .types import GetClientIP
 
 
-class RequestInfoExtension(ExtensionBase):
+class RequestInfoExtension(ExtensionProtocol):
     name = "request_info"
 
     def __init__(self, get_client_ip: GetClientIP) -> None:

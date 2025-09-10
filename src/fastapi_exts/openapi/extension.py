@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from scalar_fastapi import get_scalar_api_reference
 from starlette.routing import Route
 
-from fastapi_exts.core import ExtensionBase
+from fastapi_exts.core import ExtensionProtocol
 from fastapi_exts.utils.paths import URLPath
 
 
@@ -22,7 +22,7 @@ OpenAPIModifier = Callable[
 OpenAPIModifierT = TypeVar("OpenAPIModifierT", bound=OpenAPIModifier)
 
 
-class OpenAPIExtension(ExtensionBase):
+class OpenAPIExtension(ExtensionProtocol):
     name = "openapi"
 
     def _add_openapi(
