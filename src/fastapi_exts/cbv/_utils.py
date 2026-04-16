@@ -1,4 +1,3 @@
-import ast
 import inspect
 from collections.abc import Generator
 from typing import Annotated, TypeGuard, get_args, get_origin
@@ -80,36 +79,21 @@ def iter_class_dependency(
     None,
 ]:
     dependencies = _get_class_dependencies(cls)
+    yielded = set[str]()
 
     for c in inspect.getmro(cls):
         if c is object:
             return
 
-        source = inspect.getsource(c)
-        tree = ast.parse(source)
-        class_def = next(
-            (i for i in tree.body if isinstance(i, ast.ClassDef)),
-            None,
-        )
+        annotations = getattr(c, "__annotations__", {})
+        class_dict = c.__dict__
 
-        if class_def is None:
-            continue
+        for name in annotations:
+            if name in dependencies and name not in yielded:
+                yielded.add(name)
+                yield name, *dependencies[name]
 
-        for stmt in class_def.body:
-            if isinstance(stmt, ast.AnnAssign) and isinstance(
-                stmt.target, ast.Name
-            ):
-                token = stmt.target.id
-                if token in dependencies:
-                    dep, typ = dependencies[token]
-                    yield token, dep, typ
-
-            elif (
-                isinstance(stmt, ast.Assign)
-                and stmt.targets
-                and isinstance(stmt.targets[0], ast.Name)
-            ):
-                token = stmt.targets[0].id
-                if token in dependencies:
-                    dep, typ = dependencies[token]
-                    yield token, dep, typ
+        for name in class_dict:
+            if name in dependencies and name not in yielded:
+                yielded.add(name)
+                yield name, *dependencies[name]

@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+from typing import Annotated
+
+from fastapi import Depends, FastAPI, Query
 from fastapi.testclient import TestClient
 
 from fastapi_exts.cbv import CBV
@@ -48,6 +50,33 @@ class Routes2:
         return self.an_value.value
 
 
+VALUE2 = 2333
+
+
+def get_value():
+    return VALUE2
+
+
+GetValue = Annotated[int, Depends(get_value)]
+
+path3 = "/3"
+
+
+class Obj:
+    def __init__(self, s: str = Query()) -> None:
+        self.s = s
+
+
+@cbv
+class Routes3:
+    obj: Obj = Depends()
+    value2: GetValue
+
+    @cbv.get(path3)
+    def api(self):
+        return {"s": self.obj.s, "value2": self.value2}
+
+
 def test_api_router():
     test_client = TestClient(app)
 
@@ -56,6 +85,12 @@ def test_api_router():
 
     res = test_client.get(path2)
     assert res.json() == value
+
+    s = str(id(object()))
+    res = test_client.get(path3, params={"s": s})
+    res_json = res.json()
+    assert res_json["s"] == s
+    assert res_json["value2"] == VALUE2
 
     openapi = app.openapi()
 
